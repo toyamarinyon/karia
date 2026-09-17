@@ -18,7 +18,7 @@ const sourcePath = join(packageRoot, `target/release/karia${ext}`);
 if (!existsSync(sourcePath)) {
   console.error(`Error: native binary not found at ${sourcePath}`);
   console.error(
-    "Run cargo build --release --manifest-path packages/css-core/Cargo.toml first",
+    "Run cargo build --release --manifest-path packages/karia/Cargo.toml first",
   );
   process.exit(1);
 }

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 /**
- * Syncs the version from packages/css-core/package.json to Cargo.toml,
- * Cargo.lock, and packages/css-lsp/package.json.
+ * Syncs the version from packages/karia/package.json to Cargo.toml,
+ * Cargo.lock, and packages/karia-lsp/package.json.
  * package.json is the single source of truth.
  */
 
@@ -36,8 +36,8 @@ if (previous !== next) {
   cargoTomlUpdated = true;
 }
 
-// packages/css-lsp/package.json
-const lspPkgPath = join(rootDir, "packages", "css-lsp", "package.json");
+// packages/karia-lsp/package.json
+const lspPkgPath = join(rootDir, "packages", "karia-lsp", "package.json");
 const lspPkg = JSON.parse(readFileSync(lspPkgPath, "utf8"));
 if (lspPkg.version !== version) {
   lspPkg.version = version;

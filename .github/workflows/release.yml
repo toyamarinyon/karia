@@ -32,8 +32,8 @@ jobs:
       - name: Compare package.json version to npm and check GitHub release
         id: check
         run: |
-          LOCAL_VERSION=$(node -p "require('./packages/css-core/package.json').version")
-          PRIVATE=$(node -p "require('./packages/css-core/package.json').private === true")
+          LOCAL_VERSION=$(node -p "require('./packages/karia/package.json').version")
+          PRIVATE=$(node -p "require('./packages/karia/package.json').private === true")
           echo "karia version: $LOCAL_VERSION (private: $PRIVATE)"
 
           NPM_VERSION=$(npm view karia version 2>/dev/null || echo "0.0.0")
@@ -123,7 +123,7 @@ jobs:
           node-version: 24
 
       - name: Sync version
-        run: node packages/css-core/scripts/sync-version.js
+        run: node packages/karia/scripts/sync-version.js
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -144,19 +144,19 @@ jobs:
 
       - name: Build with zigbuild
         if: matrix.use_zigbuild
-        run: cargo zigbuild --release --manifest-path packages/css-core/Cargo.toml --target ${{ matrix.build_target }}
+        run: cargo zigbuild --release --manifest-path packages/karia/Cargo.toml --target ${{ matrix.build_target }}
 
       - name: Build with cargo
         if: '!matrix.use_zigbuild'
-        run: cargo build --release --manifest-path packages/css-core/Cargo.toml --target ${{ matrix.rust_target }}
+        run: cargo build --release --manifest-path packages/karia/Cargo.toml --target ${{ matrix.rust_target }}
 
       - name: Copy binary
         run: |
           mkdir -p artifacts
           if [[ "${{ matrix.rust_target }}" == *"windows"* ]]; then
-            cp packages/css-core/target/${{ matrix.rust_target }}/release/karia.exe artifacts/${{ matrix.binary }}
+            cp packages/karia/target/${{ matrix.rust_target }}/release/karia.exe artifacts/${{ matrix.binary }}
           else
-            cp packages/css-core/target/${{ matrix.rust_target }}/release/karia artifacts/${{ matrix.binary }}
+            cp packages/karia/target/${{ matrix.rust_target }}/release/karia artifacts/${{ matrix.binary }}
             chmod +x artifacts/${{ matrix.binary }}
           fi
 
@@ -209,10 +209,10 @@ jobs:
 
       - name: Move binaries to bin directory
         run: |
-          find artifacts -type f -name 'karia-*' -exec mv {} packages/css-core/bin/ \;
+          find artifacts -type f -name 'karia-*' -exec mv {} packages/karia/bin/ \;
           rm -rf artifacts
-          chmod +x packages/css-core/bin/karia-* 2>/dev/null || true
-          ls -la packages/css-core/bin/
+          chmod +x packages/karia/bin/karia-* 2>/dev/null || true
+          ls -la packages/karia/bin/
 
       - name: Verify all binaries exist
         run: |
@@ -228,16 +228,16 @@ jobs:
           MIN_SIZE=100000
           ERRORS=0
           for binary in "${EXPECTED_BINARIES[@]}"; do
-            if [ ! -f "packages/css-core/bin/$binary" ]; then
-              echo "ERROR: Missing packages/css-core/bin/$binary"
+            if [ ! -f "packages/karia/bin/$binary" ]; then
+              echo "ERROR: Missing packages/karia/bin/$binary"
               ERRORS=$((ERRORS + 1))
             else
-              SIZE=$(stat -c%s "packages/css-core/bin/$binary" 2>/dev/null || stat -f%z "$binary")
+              SIZE=$(stat -c%s "packages/karia/bin/$binary" 2>/dev/null || stat -f%z "$binary")
               if [ "$SIZE" -lt "$MIN_SIZE" ]; then
-                echo "ERROR: packages/css-core/bin/$binary is too small ($SIZE bytes)"
+                echo "ERROR: packages/karia/bin/$binary is too small ($SIZE bytes)"
                 ERRORS=$((ERRORS + 1))
               else
-                echo "OK: packages/css-core/bin/$binary ($SIZE bytes)"
+                echo "OK: packages/karia/bin/$binary ($SIZE bytes)"
               fi
             fi
           done
@@ -249,7 +249,7 @@ jobs:
 
       - name: Publish karia
         if: env.NPM_TOKEN != ''
-        working-directory: packages/css-core
+        working-directory: packages/karia
         env:
           PACKAGE_NAME: karia
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -265,7 +265,7 @@ jobs:
 
       - name: Publish karia-lsp
         if: env.NPM_TOKEN != ''
-        working-directory: packages/css-lsp
+        working-directory: packages/karia-lsp
         env:
           PACKAGE_NAME: karia-lsp
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

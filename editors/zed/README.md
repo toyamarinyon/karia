@@ -22,14 +22,14 @@ settings.json または `.zed/settings.json` で上書きできます。
     "karia": {
       "binary": {
         "path": "/path/to/node",
-        "arguments": ["/path/to/karia/packages/css-lsp/dist/server.js", "--stdio"]
+        "arguments": ["/path/to/karia/packages/karia-lsp/dist/server.js", "--stdio"]
       }
     }
   }
 }
 ```
 
-開発中はこの設定でモノレポの `packages/css-lsp/dist/server.js` を指すと、npm install 経路を使わずに済みます。
+開発中はこの設定でモノレポの `packages/karia-lsp/dist/server.js` を指すと、npm install 経路を使わずに済みます。
 
 ## インストール
 

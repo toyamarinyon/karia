@@ -28,7 +28,7 @@ dist-ssr
 editors/zed/extension.wasm
 
 # Platform binaries copied into the package by `npm run build` / release CI
-packages/css-core/bin/karia-*
+packages/karia/bin/karia-*
 
 # Machine-specific probe output (regenerated with npm run probe:css)
 apps/demo/probe-results.json

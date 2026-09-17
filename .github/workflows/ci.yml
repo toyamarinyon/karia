@@ -28,8 +28,8 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            packages/css-core/target
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('packages/css-core/Cargo.lock', 'rust-toolchain.toml') }}
+            packages/karia/target
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('packages/karia/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ matrix.os }}-cargo-
       - run: npm ci
       - run: npm run build

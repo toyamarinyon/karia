@@ -4,10 +4,10 @@ Viteデモを使って、エディタとAgentが同じCSS解析を利用する�
 
 ```text
 Zed / LSP client
-  └─ packages/css-lsp (TypeScript 7 / Node.js)
+  └─ packages/karia-lsp (TypeScript 7 / Node.js)
        ├─ vscode-css-languageservice: 標準CSSの補完・hover・診断
        ├─ Babel: JS/TS/TSXのimportと変数スコープの対応付け
-       └─ NDJSON worker → packages/css-core (Rust / cssparser)
+       └─ NDJSON worker → packages/karia (Rust / cssparser)
                               ├─ 変数・クラス・定義位置の索引
                               └─ karia CLI → Agent / CI
 ```
@@ -48,7 +48,7 @@ npm run dev --workspace=@css-lab/demo -- --host 127.0.0.1 --port 5175 --strictPo
 標準LSPクライアントからは、以下のプロセスを直接起動します。LSPのstdoutにはJSON-RPCだけを流すため、`turbo`経由でサーバーを起動しないでください。
 
 ```sh
-node packages/css-lsp/dist/server.js --stdio
+node packages/karia-lsp/dist/server.js --stdio
 ```
 
 ## Agent / CIから試す
@@ -111,7 +111,7 @@ npm pack --workspace=karia --pack-destination /tmp
 # 作成されたtgzを別のプロジェクトへインストールして利用できます。
 ```
 
-ネイティブバイナリは`bin/karia-<os>-<arch>[.exe]`（`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`）として`karia`パッケージに同梱します。`bin/karia.js`ラッパーが`platform`/`arch`（Linuxは`ldd`でmusl判定）から自分の環境のバイナリを選んで起動し、Windows ARM64はx64バイナリへフォールバックします。`packages/css-core/index.js`の`binaryPath`も同じ解決を行うため、LSP側はPATHを見ず常に自分の依存のバイナリを使います。
+ネイティブバイナリは`bin/karia-<os>-<arch>[.exe]`（`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`）として`karia`パッケージに同梱します。`bin/karia.js`ラッパーが`platform`/`arch`（Linuxは`ldd`でmusl判定）から自分の環境のバイナリを選んで起動し、Windows ARM64はx64バイナリへフォールバックします。`packages/karia/index.js`の`binaryPath`も同じ解決を行うため、LSP側はPATHを見ず常に自分の依存のバイナリを使います。
 
 配布はagent-browser方式です。開発時は`npm run build`が`cargo build`後に`scripts/copy-native.js`で`bin/`へコピーします。リリース時は`.github/workflows/release.yml`が7ターゲットをビルドして`bin/`に集約し、`karia`・`karia-lsp`をnpm publish、タグ`v<version>`のGitHub Releaseを作成します。`scripts/postinstall.js`は`bin/`に対応バイナリが無い場合にGitHub Releaseからダウンロードし、`private: true`の間は何もしません。`package.json`の`version`が`scripts/sync-version.js`で`Cargo.toml`/`karia-lsp`へ同期されます。
 
