@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
+      should_publish_karia: ${{ steps.check.outputs.should_publish_karia }}
+      should_publish_lsp: ${{ steps.check.outputs.should_publish_lsp }}
       needs_github_release: ${{ steps.check.outputs.needs_github_release }}
       version: ${{ steps.check.outputs.version }}
     steps:
@@ -33,22 +35,38 @@ jobs:
         id: check
         run: |
           LOCAL_VERSION=$(node -p "require('./packages/karia/package.json').version")
+          LSP_VERSION=$(node -p "require('./packages/karia-lsp/package.json').version")
           PRIVATE=$(node -p "require('./packages/karia/package.json').private === true")
           echo "karia version: $LOCAL_VERSION (private: $PRIVATE)"
+          echo "karia-lsp version: $LSP_VERSION"
 
           NPM_VERSION=$(npm view karia version 2>/dev/null || echo "0.0.0")
-          echo "npm version: $NPM_VERSION"
+          LSP_NPM_VERSION=$(npm view karia-lsp version 2>/dev/null || echo "0.0.0")
+          echo "karia npm version: $NPM_VERSION"
+          echo "karia-lsp npm version: $LSP_NPM_VERSION"
+
+          PUBLISH_KARIA=false
+          PUBLISH_LSP=false
+          if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
+            echo "karia version changed: $NPM_VERSION -> $LOCAL_VERSION"
+            PUBLISH_KARIA=true
+          fi
+          if [ "$LSP_VERSION" != "$LSP_NPM_VERSION" ]; then
+            echo "karia-lsp version changed: $LSP_NPM_VERSION -> $LSP_VERSION"
+            PUBLISH_LSP=true
+          fi
+          echo "should_publish_karia=$PUBLISH_KARIA" >> "$GITHUB_OUTPUT"
+          echo "should_publish_lsp=$PUBLISH_LSP" >> "$GITHUB_OUTPUT"
 
           if [ "$PRIVATE" = "true" ]; then
             echo "Package is private, skipping release"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
             echo "needs_github_release=false" >> "$GITHUB_OUTPUT"
-          elif [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
-            echo "Version changed: $NPM_VERSION -> $LOCAL_VERSION"
+          elif [ "$PUBLISH_KARIA" = "true" ] || [ "$PUBLISH_LSP" = "true" ]; then
             echo "should_release=true" >> "$GITHUB_OUTPUT"
             echo "needs_github_release=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Version unchanged on npm, skipping build and publish"
+            echo "Versions unchanged on npm, skipping build and publish"
             echo "should_release=false" >> "$GITHUB_OUTPUT"
             TAG="v$LOCAL_VERSION"
             if gh release view "$TAG" &>/dev/null; then
@@ -196,6 +214,9 @@ jobs:
           node-version: 24
           registry-url: 'https://registry.npmjs.org'
 
+      - name: Sync version
+        run: node packages/karia/scripts/sync-version.js
+
       - name: Install dependencies
         run: npm ci
 
@@ -248,7 +269,7 @@ jobs:
           echo "All 7 platform binaries present and valid"
 
       - name: Publish karia
-        if: env.NPM_TOKEN != ''
+        if: needs.check-release.outputs.should_publish_karia == 'true' && env.NPM_TOKEN != ''
         working-directory: packages/karia
         env:
           PACKAGE_NAME: karia
@@ -264,7 +285,7 @@ jobs:
           fi
 
       - name: Publish karia-lsp
-        if: env.NPM_TOKEN != ''
+        if: needs.check-release.outputs.should_publish_lsp == 'true' && env.NPM_TOKEN != ''
         working-directory: packages/karia-lsp
         env:
           PACKAGE_NAME: karia-lsp

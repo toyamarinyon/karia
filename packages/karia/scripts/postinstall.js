@@ -13,6 +13,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
   symlinkSync,
   unlinkSync,
   writeFileSync,
@@ -58,8 +59,25 @@ function downloadFile(url, dest) {
   });
 }
 
+/**
+ * Whether this is a `npm install -g` install. A project-local install must
+ * never touch the global bin entry.
+ */
+function isGlobalInstall() {
+  if (process.env.npm_config_global === "true") return true;
+  try {
+    const prefix = execSync("npm prefix -g", { encoding: "utf8" }).trim();
+    return packageRoot.startsWith(join(prefix, "lib", "node_modules") + "\\")
+      || packageRoot.startsWith(join(prefix, "lib", "node_modules") + "/");
+  } catch {
+    return false;
+  }
+}
+
 /** Point npm's global bin entry at the native binary directly. */
 async function fixGlobalInstallBin() {
+  if (!isGlobalInstall()) return;
+
   let npmBinDir;
   try {
     const prefix = execSync("npm prefix -g", { encoding: "utf8" }).trim();
@@ -92,6 +110,9 @@ async function fixGlobalInstallBin() {
   const symlinkPath = join(npmBinDir, "karia");
   try {
     if (!lstatSync(symlinkPath).isSymbolicLink()) return;
+    // Only repoint a link that already leads into this package.
+    const resolved = realpathSync(symlinkPath);
+    if (!resolved.startsWith(packageRoot)) return;
   } catch {
     return;
   }
