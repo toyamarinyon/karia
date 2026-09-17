@@ -16,7 +16,7 @@ Zed / LSP client
 
 ## 起動
 
-検証環境: Node.js 26.8.2、npm 11.19.1、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。
+検証環境: Node.js 26.8.2、npm 11.19.1、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。macOSとLinuxで動作し、GitHub Actionsでも両方のOSでbuild・typecheck・lint・testを実行します。
 
 ```sh
 git clone https://github.com/toyamarinyon/karia.git
@@ -111,4 +111,4 @@ npm pack --workspace=karia --pack-destination /tmp
 # 作成されたtgzを別のプロジェクトへインストールして利用できます。
 ```
 
-現在のパッケージは検証環境のmacOS arm64バイナリを同梱し、`os`/`cpu`で対象を明示しています。一般公開前にはOS・CPU別の配布を整備します。グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。
+`npm pack`はビルドしたマシンのネイティブバイナリをそのまま同梱します。一般公開前にはOS・CPU別の配布を整備します。グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。

@@ -4,15 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
     "./package.json": "./package.json"
   },
+  "types": "./index.d.ts",
   "bin": {
     "karia": "bin/karia.js"
   },
   "files": [
     "index.js",
+    "index.d.ts",
     "target/release/karia",
+    "target/release/karia.exe",
     "bin/karia.js"
   ],
   "scripts": {
@@ -21,11 +27,5 @@
     "lint": "cargo fmt --check && cargo clippy --locked -- -D warnings",
     "cli": "node scripts/run-cli.js"
   },
-  "description": "Query CSS custom properties and CSS Modules using a Rust analysis engine",
-  "os": [
-    "darwin"
-  ],
-  "cpu": [
-    "arm64"
-  ]
+  "description": "Query CSS custom properties and CSS Modules using a Rust analysis engine"
 }
