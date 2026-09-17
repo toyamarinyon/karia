@@ -1,0 +1,23 @@
+/* --surface / --text / --space are defined in tokens.css. */
+.page {
+  --local-accent: #285a43;
+  max-width: 720px;
+  margin: 64px auto;
+  padding: var(--space);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 16px;
+}
+
+.label { font-size: 11px; letter-spacing: 2px; }
+.button {
+  background: var(--local-accent);
+  color: white;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+}
+.button:focus-visible { outline: 3px solid #769980; outline-offset: 4px; }
+.note { margin-top: 32px; font-size: 13px; }

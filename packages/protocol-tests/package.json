@@ -1,0 +1,8 @@
+{
+  "name": "@css-lab/protocol-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "devDependencies": { "@css-lab/lsp": "*", "karia": "*" }
+}

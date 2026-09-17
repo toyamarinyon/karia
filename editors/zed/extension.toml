@@ -1,0 +1,16 @@
+id = "css-lab-lsp"
+name = "Karia LSP"
+version = "0.0.1"
+schema_version = 1
+authors = ["CSS Lab"]
+description = "Development Zed extension for the CSS Lab language server."
+
+[language_servers.css-lab]
+name = "Karia"
+languages = ["CSS", "TSX", "TypeScript", "JavaScript"]
+
+[language_servers.css-lab.language_ids]
+CSS = "css"
+TSX = "typescriptreact"
+TypeScript = "typescript"
+JavaScript = "javascript"

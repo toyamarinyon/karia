@@ -1,0 +1,4 @@
+@import './tokens.css';
+
+* { box-sizing: border-box; }
+body { margin: 16px; background: #eef2ec; font-family: system-ui, sans-serif; line-height: 1.8; }

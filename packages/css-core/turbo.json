@@ -1,0 +1,37 @@
+{
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "build": {
+      "cache": false,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/rust-toolchain.toml"
+      ],
+      "env": [
+        "RUSTUP_TOOLCHAIN"
+      ]
+    },
+    "test": {
+      "cache": false,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/rust-toolchain.toml"
+      ],
+      "env": [
+        "RUSTUP_TOOLCHAIN"
+      ]
+    },
+    "lint": {
+      "cache": false,
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/rust-toolchain.toml"
+      ],
+      "env": [
+        "RUSTUP_TOOLCHAIN"
+      ]
+    }
+  }
+}

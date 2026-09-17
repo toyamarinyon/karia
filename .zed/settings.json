@@ -1,0 +1,8 @@
+{
+  "languages": {
+    "CSS": { "language_servers": ["css-lab"] },
+    "TSX": { "language_servers": ["css-lab", "..."] },
+    "TypeScript": { "language_servers": ["css-lab", "..."] },
+    "JavaScript": { "language_servers": ["css-lab", "..."] }
+  }
+}

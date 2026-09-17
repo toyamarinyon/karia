@@ -1,0 +1,18 @@
+{
+  "extends": [
+    "//"
+  ],
+  "tasks": {
+    "build": {
+      "outputs": [
+        "dist/**",
+        "node_modules/.tmp/*.tsbuildinfo"
+      ]
+    },
+    "typecheck": {
+      "outputs": [
+        "node_modules/.tmp/*.tsbuildinfo"
+      ]
+    }
+  }
+}

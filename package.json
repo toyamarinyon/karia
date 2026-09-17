@@ -1,0 +1,23 @@
+{
+  "name": "karia-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@11.19.1",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "probe:css": "turbo run probe:css",
+    "karia": "turbo run cli --filter=karia --"
+  },
+  "devDependencies": {
+    "turbo": "^2.10.8"
+  }
+}
