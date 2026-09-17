@@ -1,8 +1,8 @@
 {
   "languages": {
-    "CSS": { "language_servers": ["css-lab"] },
-    "TSX": { "language_servers": ["css-lab", "..."] },
-    "TypeScript": { "language_servers": ["css-lab", "..."] },
-    "JavaScript": { "language_servers": ["css-lab", "..."] }
+    "CSS": { "language_servers": ["karia"] },
+    "TSX": { "language_servers": ["karia", "..."] },
+    "TypeScript": { "language_servers": ["karia", "..."] },
+    "JavaScript": { "language_servers": ["karia", "..."] }
   }
 }

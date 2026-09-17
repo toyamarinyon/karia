@@ -1,0 +1,311 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: read
+
+jobs:
+  check-release:
+    name: Check for new version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      needs_github_release: ${{ steps.check.outputs.needs_github_release }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Compare package.json version to npm and check GitHub release
+        id: check
+        run: |
+          LOCAL_VERSION=$(node -p "require('./packages/css-core/package.json').version")
+          PRIVATE=$(node -p "require('./packages/css-core/package.json').private === true")
+          echo "karia version: $LOCAL_VERSION (private: $PRIVATE)"
+
+          NPM_VERSION=$(npm view karia version 2>/dev/null || echo "0.0.0")
+          echo "npm version: $NPM_VERSION"
+
+          if [ "$PRIVATE" = "true" ]; then
+            echo "Package is private, skipping release"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            echo "needs_github_release=false" >> "$GITHUB_OUTPUT"
+          elif [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
+            echo "Version changed: $NPM_VERSION -> $LOCAL_VERSION"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+            echo "needs_github_release=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Version unchanged on npm, skipping build and publish"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+            TAG="v$LOCAL_VERSION"
+            if gh release view "$TAG" &>/dev/null; then
+              echo "needs_github_release=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "needs_github_release=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+          echo "version=$LOCAL_VERSION" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-binaries:
+    name: Build ${{ matrix.name }}
+    needs: check-release
+    if: needs.check-release.outputs.should_release == 'true' || needs.check-release.outputs.needs_github_release == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+            build_target: x86_64-unknown-linux-gnu.2.28
+            binary: karia-linux-x64
+            use_zigbuild: true
+          - name: Linux ARM64
+            os: ubuntu-latest
+            rust_target: aarch64-unknown-linux-gnu
+            build_target: aarch64-unknown-linux-gnu.2.28
+            binary: karia-linux-arm64
+            use_zigbuild: true
+          - name: Linux musl x64
+            os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-musl
+            build_target: x86_64-unknown-linux-musl
+            binary: karia-linux-musl-x64
+            use_zigbuild: true
+          - name: Linux musl ARM64
+            os: ubuntu-latest
+            rust_target: aarch64-unknown-linux-musl
+            build_target: aarch64-unknown-linux-musl
+            binary: karia-linux-musl-arm64
+            use_zigbuild: true
+          - name: Windows x64
+            os: ubuntu-latest
+            rust_target: x86_64-pc-windows-gnu
+            build_target: x86_64-pc-windows-gnu
+            binary: karia-win32-x64.exe
+            use_zigbuild: false
+          - name: macOS x64
+            os: macos-latest
+            rust_target: x86_64-apple-darwin
+            build_target: x86_64-apple-darwin
+            binary: karia-darwin-x64
+            use_zigbuild: false
+          - name: macOS ARM64
+            os: macos-latest
+            rust_target: aarch64-apple-darwin
+            build_target: aarch64-apple-darwin
+            binary: karia-darwin-arm64
+            use_zigbuild: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Sync version
+        run: node packages/css-core/scripts/sync-version.js
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
+
+      - name: Install cross-compilation tools (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64 musl-tools
+
+      - name: Install cargo-zigbuild
+        if: matrix.use_zigbuild
+        run: |
+          pip3 install ziglang
+          cargo install cargo-zigbuild
+
+      - name: Build with zigbuild
+        if: matrix.use_zigbuild
+        run: cargo zigbuild --release --manifest-path packages/css-core/Cargo.toml --target ${{ matrix.build_target }}
+
+      - name: Build with cargo
+        if: '!matrix.use_zigbuild'
+        run: cargo build --release --manifest-path packages/css-core/Cargo.toml --target ${{ matrix.rust_target }}
+
+      - name: Copy binary
+        run: |
+          mkdir -p artifacts
+          if [[ "${{ matrix.rust_target }}" == *"windows"* ]]; then
+            cp packages/css-core/target/${{ matrix.rust_target }}/release/karia.exe artifacts/${{ matrix.binary }}
+          else
+            cp packages/css-core/target/${{ matrix.rust_target }}/release/karia artifacts/${{ matrix.binary }}
+            chmod +x artifacts/${{ matrix.binary }}
+          fi
+
+      - name: Verify Linux GNU glibc floor
+        if: matrix.binary == 'karia-linux-x64' || matrix.binary == 'karia-linux-arm64'
+        run: |
+          set -euo pipefail
+          if objdump -p artifacts/${{ matrix.binary }} | grep -E 'GLIBC_2\.([3-9][0-9]|29)'; then
+            echo "ERROR: ${{ matrix.binary }} requires glibc newer than 2.28"
+            exit 1
+          fi
+          objdump -p artifacts/${{ matrix.binary }} | sed -n '/Version References:/,$p'
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.binary }}
+          path: artifacts/${{ matrix.binary }}
+          retention-days: 7
+
+  publish:
+    name: Publish packages
+    needs: [check-release, build-binaries]
+    if: needs.build-binaries.result == 'success' && needs.check-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build karia-lsp
+        run: npm run build --workspace=karia-lsp
+
+      - name: Download all binary artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Move binaries to bin directory
+        run: |
+          find artifacts -type f -name 'karia-*' -exec mv {} packages/css-core/bin/ \;
+          rm -rf artifacts
+          chmod +x packages/css-core/bin/karia-* 2>/dev/null || true
+          ls -la packages/css-core/bin/
+
+      - name: Verify all binaries exist
+        run: |
+          EXPECTED_BINARIES=(
+            "karia-linux-x64"
+            "karia-linux-arm64"
+            "karia-linux-musl-x64"
+            "karia-linux-musl-arm64"
+            "karia-win32-x64.exe"
+            "karia-darwin-x64"
+            "karia-darwin-arm64"
+          )
+          MIN_SIZE=100000
+          ERRORS=0
+          for binary in "${EXPECTED_BINARIES[@]}"; do
+            if [ ! -f "packages/css-core/bin/$binary" ]; then
+              echo "ERROR: Missing packages/css-core/bin/$binary"
+              ERRORS=$((ERRORS + 1))
+            else
+              SIZE=$(stat -c%s "packages/css-core/bin/$binary" 2>/dev/null || stat -f%z "$binary")
+              if [ "$SIZE" -lt "$MIN_SIZE" ]; then
+                echo "ERROR: packages/css-core/bin/$binary is too small ($SIZE bytes)"
+                ERRORS=$((ERRORS + 1))
+              else
+                echo "OK: packages/css-core/bin/$binary ($SIZE bytes)"
+              fi
+            fi
+          done
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "Error: $ERRORS binary issues found"
+            exit 1
+          fi
+          echo "All 7 platform binaries present and valid"
+
+      - name: Publish karia
+        if: env.NPM_TOKEN != ''
+        working-directory: packages/css-core
+        env:
+          PACKAGE_NAME: karia
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.check-release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
+          else
+            npm publish --provenance --access public
+          fi
+
+      - name: Publish karia-lsp
+        if: env.NPM_TOKEN != ''
+        working-directory: packages/css-lsp
+        env:
+          PACKAGE_NAME: karia-lsp
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ needs.check-release.outputs.version }}
+        run: |
+          set -euo pipefail
+          if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+            echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
+          else
+            npm publish --provenance --access public
+          fi
+
+  github-release:
+    name: Create GitHub Release
+    needs: [check-release, build-binaries, publish]
+    if: >-
+      always() &&
+      needs.build-binaries.result == 'success' &&
+      needs.check-release.outputs.needs_github_release == 'true' &&
+      (needs.publish.result == 'success' || needs.publish.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Create GitHub Release with binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="v${{ needs.check-release.outputs.version }}"
+          BINARIES=$(find artifacts -type f -name 'karia-*')
+          gh release create "$TAG" $BINARIES \
+            --title "karia $TAG" \
+            --generate-notes

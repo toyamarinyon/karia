@@ -125,7 +125,7 @@ async function publishDiagnostics() {
     if (!isCss(doc.uri)) continue;
     const diagnostics: Diagnostic[] = service.doValidation(doc, service.parseStylesheet(doc));
     const extra = await core.call<CoreDiagnostic[]>('diagnostics', { uri: doc.uri });
-    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'css-lab' })));
+    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' })));
     connection.sendDiagnostics({ uri: doc.uri, version: doc.version, diagnostics });
   }
 }

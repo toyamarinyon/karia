@@ -1,15 +1,16 @@
-id = "css-lab-lsp"
+id = "karia-lsp"
 name = "Karia LSP"
 version = "0.0.1"
 schema_version = 1
-authors = ["CSS Lab"]
-description = "Development Zed extension for the CSS Lab language server."
+authors = ["Karia"]
+description = "Zed extension for the karia CSS language server."
+capabilities = [{ kind = "npm:install", package = "karia-lsp" }]
 
-[language_servers.css-lab]
-name = "Karia"
+[language_servers.karia]
+name = "karia"
 languages = ["CSS", "TSX", "TypeScript", "JavaScript"]
 
-[language_servers.css-lab.language_ids]
+[language_servers.karia.language_ids]
 CSS = "css"
 TSX = "typescriptreact"
 TypeScript = "typescript"
