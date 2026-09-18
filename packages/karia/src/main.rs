@@ -16,6 +16,8 @@ struct Request {
     text: String,
     #[serde(default)]
     name: String,
+    #[serde(default)]
+    offset: usize,
 }
 #[derive(Serialize)]
 struct Response<T: Serialize> {
@@ -161,6 +163,13 @@ fn serve() {
                 Response {
                     id: req.id,
                     result: idx.diagnostics(&req.uri),
+                },
+            ),
+            "module-access" => write_json(
+                &mut out,
+                Response {
+                    id: req.id,
+                    result: karia::tsx::module_access(&req.text, req.offset),
                 },
             ),
             _ => write_json(
