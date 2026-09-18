@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { binaryPath as binary } from 'karia';
+import { binaryPath as binary } from 'karia-css';
 test('Rust CLI returns actionable JSON and nonzero on unknown variable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'css-cli-'));
   try {

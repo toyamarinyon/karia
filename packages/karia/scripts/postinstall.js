@@ -90,7 +90,7 @@ async function fixGlobalInstallBin() {
     const cmdShim = join(npmBinDir, "karia.cmd");
     const ps1Shim = join(npmBinDir, "karia.ps1");
     if (!existsSync(cmdShim)) return;
-    const relativePath = `node_modules\\karia\\bin\\${binaryName()}`;
+    const relativePath = `node_modules\\karia-css\\bin\\${binaryName()}`;
     if (!existsSync(join(npmBinDir, relativePath))) return;
     try {
       writeFileSync(

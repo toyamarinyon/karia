@@ -23,7 +23,7 @@
     "@babel/traverse": "^7.28.4",
     "@babel/types": "^7.28.4",
     "ignore": "^7.0.9",
-    "karia": "workspace:*",
+    "karia-css": "workspace:*",
     "vscode-css-languageservice": "^6.3.10",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.14",
