@@ -29,15 +29,15 @@ settings.json または `.zed/settings.json` で上書きできます。
 }
 ```
 
-開発中はこの設定でモノレポの `packages/karia-lsp/dist/server.js` を指すと、npm install 経路を使わずに済みます。
+開発中はこの設定でモノレポの `packages/karia-lsp/dist/server.js` を指すと、パッケージ install 経路を使わずに済みます。
 
 ## インストール
 
 1. ワークスペースの依存関係をインストールし、LSP をビルドします。
 
    ```sh
-   npm install
-   npm run build -- --filter=karia-lsp...
+   pnpm install
+   pnpm run build --filter=karia-lsp...
    ```
 
 2. Zed で Command Palette (`cmd-shift-p`) を開き、`zed: install dev extension` を実行します。

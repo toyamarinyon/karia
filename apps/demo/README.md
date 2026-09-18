@@ -4,17 +4,17 @@ Vite + React + TypeScript + CSS Modules の最小デモ。
 Microsoft の `vscode-css-languageservice` を直接呼び、エディタに依存せず挙動を検証します。
 
 ```sh
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 ## 再現コマンド
 
 ```sh
-npm run probe:css
-npm run typecheck
-npm run lint
-npm run build
+pnpm run probe:css
+pnpm run typecheck
+pnpm run lint
+pnpm run build
 ```
 
 `probe:css` は `scripts/probe-css.mjs` を実行し、詳細を `probe-results.json` に保存します。

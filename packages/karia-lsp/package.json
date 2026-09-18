@@ -8,7 +8,7 @@
   "files": ["dist"],
   "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "lint": "oxlint src", "test": "node --test" },
   "dependencies": {
-    "karia": "*",
+    "karia": "workspace:*",
     "@babel/parser": "^7.28.4",
     "@babel/traverse": "^7.28.4",
     "@babel/types": "^7.28.4",

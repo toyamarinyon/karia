@@ -16,20 +16,20 @@ Zed / LSP client
 
 ## 起動
 
-検証環境: Node.js 26.8.2、npm 11.19.1、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。macOSとLinuxで動作し、GitHub Actionsでも両方のOSでbuild・typecheck・lint・testを実行します。
+検証環境: Node.js 26.8.2、pnpm 12.4.2、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。macOSとLinuxで動作し、GitHub Actionsでも両方のOSでbuild・typecheck・lint・testを実行します。
 
 ```sh
 git clone https://github.com/toyamarinyon/karia.git
 cd karia
-npm ci
-npm run build
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run build
+pnpm run dev
 ```
 
 `apps/demo`が元の`hello-vite-css-lsp`です。ポート固定で起動する場合:
 
 ```sh
-npm run dev --workspace=@css-lab/demo -- --host 127.0.0.1 --port 5175 --strictPort
+pnpm --filter @css-lab/demo run dev --host 127.0.0.1 --port 5175 --strictPort
 ```
 
 ビルドが必要なのはツール自身の初回導入・実装変更時です。利用するCSS/TSXの編集時は、保存やbuildをせずLSPへ反映します。
@@ -53,16 +53,16 @@ node packages/karia-lsp/dist/server.js --stdio
 
 ## Agent / CIから試す
 
-ビルド済みRust CLIはNode.jsなしで動きます。npm workspaceからは次の短いコマンドで呼び出せます。
+ビルド済みRust CLIはNode.jsなしで動きます。pnpm workspaceからは次の短いコマンドで呼び出せます。
 
 ```sh
-npm run karia -- inspect apps/demo/src --token --surface
-npm run karia -- check apps/demo/src --format json
+pnpm run karia inspect apps/demo/src --token --surface
+pnpm run karia check apps/demo/src --format json
 ```
 
 `inspect`は宣言値・定義元・セレクターなどの条件を返します。`check`は索引内に宣言が見つからないCSS変数を検出し、診断があれば終了コード1、引数不正は2です。JSONの`start`/`end`はUTF-8バイト位置です。LSP側ではUTF-16位置へ変換します。
 
-`npm run karia -- …`の`--`は引数をCLIへ渡すために必要です。JSONだけを受け取りたいAgentからは、npm/Turboのログが混ざらない`npx --no-install karia …`を使えます。
+pnpmは`npm run`と違って`--`なしで引数をスクリプトへ渡します。JSONだけを受け取りたいAgentからは、pnpm/Turboのログが混ざらない`node packages/karia/bin/karia.js …`を使えます。
 
 CLIとLSPはRustの同じ索引・変数診断を使います。標準CSS構文診断はNode側のMicrosoftライブラリが担当するため、CLIの`check`はCSS全体のlintではありません。
 
@@ -71,11 +71,11 @@ CLIとLSPはRustの同じ索引・変数診断を使います。標準CSS構文�
 開発環境での検証では、Zed開発用拡張をインストールし、`--surface`のhoverに`#ffffff`と`tokens.css`、TSXの`styles.page`のhoverにCSS宣言が表示されることを画面上でも確認しました。TSXではTypeScript側の型hoverも併記されます。
 
 ```sh
-npm run build
-npm run typecheck
-npm run lint
-npm test
-npm run probe:css
+pnpm run build
+pnpm run typecheck
+pnpm run lint
+pnpm test
+pnpm run probe:css
 ```
 
 - Rust単体テスト: Unicode位置、未保存更新相当の置換、コメント・文字列・`:global`除外、ネスト、エスケープ識別子、変数fallback。
@@ -83,7 +83,7 @@ npm run probe:css
 - プロセス間テスト: 実際のRust CLIとstdio LSPを起動して補完・hover・定義・編集/close・ファイル追加/削除を検証。
 - `probe:css`: Microsoftライブラリ単体の元の実験を維持。
 
-Turborepoの実処理は各パッケージに置き、LSP→Rustの依存をnpm workspaceに宣言しています。ネイティブ成果物はアーキテクチャ依存のため、RustタスクのTurboキャッシュを無効にし、Cargo自身の増分ビルドを使います。
+Turborepoの実処理は各パッケージに置き、LSP→Rustの依存をpnpm workspaceに宣言しています。ネイティブ成果物はアーキテクチャ依存のため、RustタスクのTurboキャッシュを無効にし、Cargo自身の増分ビルドを使います。
 
 ## プロトタイプの境界
 
@@ -107,12 +107,12 @@ Turborepoの実処理は各パッケージに置き、LSP→Rustの依存をnpm 
 2パッケージ構成です。`karia`はRustネイティブバイナリとCLI、`karia-lsp`は`karia`に依存するNodeのLSPです。どちらも現在は未公開で`private: true`にしてあります。
 
 ```sh
-npm pack --workspace=karia --pack-destination /tmp
+pnpm --dir packages/karia pack --pack-destination /tmp
 # 作成されたtgzを別のプロジェクトへインストールして利用できます。
 ```
 
 ネイティブバイナリは`bin/karia-<os>-<arch>[.exe]`（`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`）として`karia`パッケージに同梱します。`bin/karia.js`ラッパーが`platform`/`arch`（Linuxは`ldd`でmusl判定）から自分の環境のバイナリを選んで起動し、Windows ARM64はx64バイナリへフォールバックします。`packages/karia/index.js`の`binaryPath`も同じ解決を行うため、LSP側はPATHを見ず常に自分の依存のバイナリを使います。
 
-配布はagent-browser方式です。開発時は`npm run build`が`cargo build`後に`scripts/copy-native.js`で`bin/`へコピーします。リリース時は`.github/workflows/release.yml`が7ターゲットをビルドして`bin/`に集約し、`karia`・`karia-lsp`をnpm publish、タグ`v<version>`のGitHub Releaseを作成します。`scripts/postinstall.js`は`bin/`に対応バイナリが無い場合にGitHub Releaseからダウンロードし、`private: true`の間は何もしません。`package.json`の`version`が`scripts/sync-version.js`で`Cargo.toml`/`karia-lsp`へ同期されます。
+配布はagent-browser方式です。開発時は`pnpm run build`が`cargo build`後に`scripts/copy-native.js`で`bin/`へコピーします。リリース時は`.github/workflows/release.yml`が7ターゲットをビルドして`bin/`に集約し、`karia`・`karia-lsp`をpnpm publish、タグ`v<version>`のGitHub Releaseを作成します。`scripts/postinstall.js`は`bin/`に対応バイナリが無い場合にGitHub Releaseからダウンロードし、`private: true`の間は何もしません。`package.json`の`version`が`scripts/sync-version.js`で`Cargo.toml`/`karia-lsp`へ同期されます。
 
 グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。

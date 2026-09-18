@@ -22,7 +22,7 @@
   ],
   "scripts": {
     "version:sync": "node scripts/sync-version.js",
-    "build": "npm run version:sync && cargo build --release --locked && node scripts/copy-native.js",
+    "build": "node scripts/sync-version.js && cargo build --release --locked && node scripts/copy-native.js",
     "test": "cargo test --locked",
     "lint": "cargo fmt --check && cargo clippy --locked -- -D warnings",
     "cli": "node scripts/run-cli.js",
