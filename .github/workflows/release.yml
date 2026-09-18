@@ -145,8 +145,12 @@ jobs:
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.rust_target }}
+
+      # rust-toolchain.toml overrides the toolchain to the pinned channel, so
+      # targets must be added through rustup inside the workspace (the
+      # toolchain action's `targets` input would only affect `stable`).
+      - name: Install Rust target
+        run: rustup target add ${{ matrix.rust_target }}
 
       - name: Install cross-compilation tools (Linux)
         if: matrix.os == 'ubuntu-latest'
