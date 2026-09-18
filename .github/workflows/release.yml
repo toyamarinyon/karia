@@ -35,24 +35,24 @@ jobs:
         id: check
         run: |
           LOCAL_VERSION=$(node -p "require('./packages/karia/package.json').version")
-          LSP_VERSION=$(node -p "require('./packages/karia-lsp/package.json').version")
           PRIVATE=$(node -p "require('./packages/karia/package.json').private === true")
           echo "karia version: $LOCAL_VERSION (private: $PRIVATE)"
-          echo "karia-lsp version: $LSP_VERSION"
 
           NPM_VERSION=$(npm view karia version 2>/dev/null || echo "0.0.0")
           LSP_NPM_VERSION=$(npm view karia-lsp version 2>/dev/null || echo "0.0.0")
           echo "karia npm version: $NPM_VERSION"
           echo "karia-lsp npm version: $LSP_NPM_VERSION"
 
+          # sync-version.js locks both packages to LOCAL_VERSION, so check the
+          # publish target (LOCAL_VERSION) against npm for both.
           PUBLISH_KARIA=false
           PUBLISH_LSP=false
           if [ "$LOCAL_VERSION" != "$NPM_VERSION" ]; then
             echo "karia version changed: $NPM_VERSION -> $LOCAL_VERSION"
             PUBLISH_KARIA=true
           fi
-          if [ "$LSP_VERSION" != "$LSP_NPM_VERSION" ]; then
-            echo "karia-lsp version changed: $LSP_NPM_VERSION -> $LSP_VERSION"
+          if [ "$LOCAL_VERSION" != "$LSP_NPM_VERSION" ]; then
+            echo "karia-lsp will publish at $LOCAL_VERSION (npm has $LSP_NPM_VERSION)"
             PUBLISH_LSP=true
           fi
           echo "should_publish_karia=$PUBLISH_KARIA" >> "$GITHUB_OUTPUT"
