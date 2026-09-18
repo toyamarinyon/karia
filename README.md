@@ -29,7 +29,7 @@ pnpm run dev
 `apps/demo` is the original `hello-vite-css-lsp`. To run on a fixed port:
 
 ```sh
-pnpm --filter @css-lab/demo run dev --host 127.0.0.1 --port 5175 --strictPort
+pnpm --filter karia-demo run dev --host 127.0.0.1 --port 5175 --strictPort
 ```
 
 A build is only needed when first setting up the tools or when the implementation changes. Edits to the CSS/TSX you work with are reflected in the LSP without saving or building.
