@@ -19,9 +19,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@babel/parser": "^7.28.4",
-    "@babel/traverse": "^7.28.4",
-    "@babel/types": "^7.28.4",
     "ignore": "^7.0.9",
     "karia-css": "workspace:*",
     "vscode-css-languageservice": "^6.3.10",
@@ -30,7 +27,6 @@
     "vscode-languageserver-types": "^3.17.5"
   },
   "devDependencies": {
-    "@types/babel__traverse": "^7.20.7",
     "@types/node": "^24.0.0",
     "oxlint": "^1.81.0",
     "typescript": "^7.0.2"
