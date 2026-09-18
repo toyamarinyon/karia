@@ -62,7 +62,7 @@ function items(result) { return Array.isArray(result) ? result : result.items; }
 function locations(result) { return result == null ? [] : Array.isArray(result) ? result : [result]; }
 
  test('real stdio LSP: CSS service + Rust index + unsaved CSS Modules', { timeout: 90000 }, async t => {
-  const root = await mkdtemp(join(tmpdir(), 'css-lab-'));
+  const root = await mkdtemp(join(tmpdir(), 'karia-'));
   const tokens = ':root { --accent: #285a43; --space: 24px; }\n[data-theme="dark"] { --accent: #99ccaa; }';
   const css = '/* 🌿 multibyte */\n.card { background: var(--accent); padding: var(--space); }\n.button { color: white; }';
   const tsx = 'import styles from "./App.module.css";\nexport const view = <div className={styles.card} />;';
@@ -130,7 +130,7 @@ function locations(result) { return result == null ? [] : Array.isArray(result) 
  });
 
 test('real stdio LSP: .gitignore excludes files from scan and watch paths', { timeout: 90000 }, async t => {
-  const root = await mkdtemp(join(tmpdir(), 'css-lab-ignore-'));
+  const root = await mkdtemp(join(tmpdir(), 'karia-ignore-'));
   const uri = name => pathToFileURL(join(root, name)).href;
   await mkdir(join(root, 'generated'));
   await writeFile(join(root, '.gitignore'), 'generated/\nignored.css\n');
