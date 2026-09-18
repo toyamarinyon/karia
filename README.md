@@ -88,6 +88,7 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 ## Prototype boundaries
 
 - CSS variables are indexed across the CSS in the open workspace. Visibility through the import graph and the DOM cascade are unresolved — "a declaration is found" does not mean "it applies to that element".
+- Indexing skips `node_modules`, `dist`, `target`, `.git`, `.turbo`, and paths excluded by `.gitignore`. The CLI also honors parent-directory `.gitignore` and `.git/info/exclude`; the LSP only reads `.gitignore` files inside the workspace. Open documents stay indexed even when ignored.
 - Hover lists each declaration's value and conditions. Recursive resolution of variable aliases, color swatches, doc comments, rename, and find-references are not implemented.
 - CSS Modules covers regular local classes plus `:global`/`:local`. `composes`, ICSS exports, Vite's `localsConvention`, and exact parity with Sass/Less/PostCSS transforms are unsupported.
 - In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.

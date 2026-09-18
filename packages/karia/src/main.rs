@@ -1,6 +1,6 @@
+use ignore::WalkBuilder;
 use karia::{Definition, Diagnostic, Index};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::env;
 use std::fs;
 use std::io::{self, BufRead, Write};
@@ -224,45 +224,26 @@ fn scan(root: &Path, idx: &mut Index) -> bool {
     }
     true
 }
+// Hard exclusions apply even when a .gitignore un-ignores them; .gitignore
+// rules (including parents and .git/info/exclude) are handled by WalkBuilder.
+const IGNORED_DIRECTORIES: &[&str] = &["node_modules", "dist", "target", ".git", ".turbo"];
 fn files(root: &Path) -> Result<Vec<PathBuf>, String> {
     let mut out = Vec::new();
-    let mut visited = HashSet::new();
-    visit(root, &mut out, &mut visited)?;
+    let walker = WalkBuilder::new(root)
+        .hidden(false)
+        .require_git(false)
+        .filter_entry(|entry| {
+            !IGNORED_DIRECTORIES.contains(&entry.file_name().to_str().unwrap_or_default())
+        })
+        .build();
+    for entry in walker {
+        let entry = entry.map_err(|e| format!("could not walk {}: {e}", root.display()))?;
+        if entry.file_type().is_some_and(|kind| kind.is_file())
+            && entry.path().extension().and_then(|x| x.to_str()) == Some("css")
+        {
+            out.push(entry.into_path());
+        }
+    }
     out.sort();
     Ok(out)
-}
-fn visit(
-    path: &Path,
-    out: &mut Vec<PathBuf>,
-    visited: &mut HashSet<PathBuf>,
-) -> Result<(), String> {
-    let canonical =
-        fs::canonicalize(path).map_err(|e| format!("could not access {}: {e}", path.display()))?;
-    if !visited.insert(canonical) {
-        return Ok(());
-    }
-    let rd = fs::read_dir(path)
-        .map_err(|e| format!("could not read directory {}: {e}", path.display()))?;
-    for entry in rd {
-        let e = entry
-            .map_err(|e| format!("could not read directory entry in {}: {e}", path.display()))?;
-        let p = e.path();
-        if fs::symlink_metadata(&p)
-            .map_err(|e| format!("could not inspect {}: {e}", p.display()))?
-            .file_type()
-            .is_symlink()
-        {
-            continue;
-        }
-        if p.is_dir() {
-            let n = p.file_name().and_then(|x| x.to_str()).unwrap_or("");
-            if matches!(n, "node_modules" | "dist" | "target" | ".git") {
-                continue;
-            }
-            visit(&p, out, visited)?;
-        } else if p.extension().and_then(|x| x.to_str()) == Some("css") {
-            out.push(p);
-        }
-    }
-    Ok(())
 }
