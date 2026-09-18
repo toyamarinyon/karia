@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -128,3 +128,42 @@ function locations(result) { return result == null ? [] : Array.isArray(result) 
   const removed = items(await query('completion', 'scratch.css', '.a { color: var(--); }', '--', 2));
   assert.ok(!removed.some(x => x.label === '--added'));
  });
+
+test('real stdio LSP: .gitignore excludes files from scan and watch paths', { timeout: 90000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'css-lab-ignore-'));
+  const uri = name => pathToFileURL(join(root, name)).href;
+  await mkdir(join(root, 'generated'));
+  await writeFile(join(root, '.gitignore'), 'generated/\nignored.css\n');
+  await writeFile(join(root, 'generated', 'hidden.css'), ':root { --hidden: 1px; }');
+  await writeFile(join(root, 'ignored.css'), ':root { --ignored: 2px; }');
+  const c = client();
+  t.after(async () => { await c.close(); await rm(root, { recursive: true, force: true }); });
+  await c.request('initialize', { processId: process.pid, rootUri: pathToFileURL(root).href, capabilities: {}, workspaceFolders: [{ uri: pathToFileURL(root).href, name: 'fixture' }] });
+  c.notify('initialized', {});
+  const scratch = '.a { color: var(--); }';
+  const open = (name, text, languageId) => c.notify('textDocument/didOpen', { textDocument: { uri: uri(name), languageId, version: 1, text } });
+  const query = (method, name, text, needle, delta) => c.request(`textDocument/${method}`, { textDocument: { uri: uri(name) }, position: pos(text, needle, delta) });
+  open('scratch.css', scratch, 'css');
+  const initial = items(await query('completion', 'scratch.css', scratch, '--', 2));
+  assert.ok(!initial.some(x => x.label === '--hidden'));
+  assert.ok(!initial.some(x => x.label === '--ignored'));
+
+  c.notify('workspace/didChangeWatchedFiles', { changes: [{ uri: uri('ignored.css'), type: 1 }, { uri: uri('generated/hidden.css'), type: 1 }] });
+  const bypass = items(await query('completion', 'scratch.css', scratch, '--', 2));
+  assert.ok(!bypass.some(x => x.label === '--ignored'), 'watched-files must not bypass .gitignore');
+  assert.ok(!bypass.some(x => x.label === '--hidden'));
+
+  const ignoredOpen = ':root { --ignored: 9px; }';
+  open('ignored.css', ignoredOpen, 'css');
+  const overlay = await query('hover', 'ignored.css', ignoredOpen, '--ignored', 4);
+  assert.match(JSON.stringify(overlay), /9px/, 'open documents keep their overlay even when gitignored');
+  c.notify('textDocument/didClose', { textDocument: { uri: uri('ignored.css') } });
+  const afterClose = items(await query('completion', 'scratch.css', scratch, '--', 2));
+  assert.ok(!afterClose.some(x => x.label === '--ignored'), 'closing a gitignored file drops it from the index');
+
+  await writeFile(join(root, '.gitignore'), 'generated/\n');
+  c.notify('workspace/didChangeWatchedFiles', { changes: [{ uri: uri('.gitignore'), type: 2 }] });
+  const visible = items(await query('completion', 'scratch.css', scratch, '--', 2));
+  assert.ok(visible.some(x => x.label === '--ignored'), 'removing a gitignore rule must re-index the file');
+  assert.ok(!visible.some(x => x.label === '--hidden'));
+});

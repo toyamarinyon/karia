@@ -1,7 +1,6 @@
 {
   "name": "karia",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "type": "module",
   "exports": {
     ".": {
@@ -28,5 +27,19 @@
     "cli": "node scripts/run-cli.js",
     "postinstall": "node scripts/postinstall.js"
   },
-  "description": "Query CSS custom properties and CSS Modules using a Rust analysis engine"
+  "description": "Query CSS custom properties and CSS Modules using a Rust analysis engine",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toyamarinyon/karia.git",
+    "directory": "packages/karia"
+  },
+  "keywords": [
+    "css",
+    "css-modules",
+    "css-variables",
+    "custom-properties",
+    "cli",
+    "language-server"
+  ]
 }

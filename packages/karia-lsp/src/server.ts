@@ -9,6 +9,7 @@ import { createInterface } from 'node:readline';
 import fs from 'node:fs/promises';
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
+import ignore from 'ignore';
 import { binaryPath } from 'karia';
 import { moduleAccess } from './tsx.js';
 
@@ -64,10 +65,54 @@ class RustClient {
   close() { this.child.stdin.end(); this.child.kill(); }
 }
 const isCss = (uri: string) => uri.startsWith('file:') && fileURLToPath(uri).endsWith('.css');
+// Hard exclusions apply even when a .gitignore un-ignores them.
+const ignoredDirectories = new Set(['node_modules', 'dist', 'target', '.git', '.turbo']);
+const workspaceRoots: string[] = [];
+// One matcher per .gitignore file, scoped to the directory containing it.
+const ignoreRules: { base: string; matcher: ignore.Ignore }[] = [];
+function isIgnored(abs: string, isDir = false): boolean {
+  const root = workspaceRoots.find(r => abs === r || abs.startsWith(r + path.sep));
+  const segments = (root ? path.relative(root, abs) : abs).split(path.sep);
+  if (segments.some(part => ignoredDirectories.has(part))) return true;
+  for (const { base, matcher } of ignoreRules) {
+    const rel = path.relative(base, abs);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    const pathname = rel.split(path.sep).join('/');
+    if (matcher.ignores(isDir ? pathname + '/' : pathname)) return true;
+  }
+  return false;
+}
+async function loadGitignore(dir: string) {
+  const existing = ignoreRules.findIndex(r => r.base === dir);
+  try {
+    const matcher = ignore().add(await fs.readFile(path.join(dir, '.gitignore'), 'utf8'));
+    if (existing >= 0) ignoreRules[existing] = { base: dir, matcher };
+    else ignoreRules.push({ base: dir, matcher });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    if (existing >= 0) ignoreRules.splice(existing, 1);
+  }
+}
+async function refreshGitignore(dir: string) {
+  if (isIgnored(dir, true)) return;
+  await loadGitignore(dir);
+  for (const uri of [...snapshots.keys()]) {
+    // Open documents keep their unsaved overlay even when gitignored.
+    if (isCss(uri) && !documents.get(uri) && isIgnored(fileURLToPath(uri))) {
+      snapshots.delete(uri); await core.call('remove', { uri });
+    }
+  }
+  await scanDirectory(dir);
+  await publishDiagnostics();
+}
 async function indexFile(uri: string) {
   if (!isCss(uri)) return;
   const open = documents.get(uri);
   if (open) { await update(uri, open.getText()); return; }
+  if (isIgnored(fileURLToPath(uri))) {
+    snapshots.delete(uri); await core.call('remove', { uri });
+    return;
+  }
   try { await update(uri, await fs.readFile(fileURLToPath(uri), 'utf8')); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -75,11 +120,11 @@ async function indexFile(uri: string) {
   }
 }
 async function update(uri: string, text: string) { snapshots.set(uri, text); await core.call('update', { uri, text }); }
-const ignoredDirectories = new Set(['node_modules', 'dist', 'target', '.git', '.turbo']);
 async function scanDirectory(dir: string) {
+  await loadGitignore(dir);
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    if (ignoredDirectories.has(entry.name)) continue;
     const file = path.join(dir, entry.name);
+    if (isIgnored(file, entry.isDirectory())) continue;
     if (entry.isDirectory()) await scanDirectory(file);
     else if (entry.isFile() && entry.name.endsWith('.css')) await indexFile(pathToFileURL(file).href);
   }
@@ -120,12 +165,13 @@ async function moduleDefinitions(uri: string, specifier: string) {
   if (!snapshots.has(target)) await indexFile(target);
   return core.call<Definition[]>('classes', { uri: target });
 }
+// Only index-derived diagnostics are published; standard CSS lint is left to
+// linters such as stylelint.
 async function publishDiagnostics() {
   for (const doc of documents.all()) {
     if (!isCss(doc.uri)) continue;
-    const diagnostics: Diagnostic[] = service.doValidation(doc, service.parseStylesheet(doc));
     const extra = await core.call<CoreDiagnostic[]>('diagnostics', { uri: doc.uri });
-    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' })));
+    const diagnostics: Diagnostic[] = extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' }));
     connection.sendDiagnostics({ uri: doc.uri, version: doc.version, diagnostics });
   }
 }
@@ -136,10 +182,17 @@ connection.onInitialize(params => serial(async () => {
   const roots = params.workspaceFolders?.map(f => f.uri) ?? (params.rootUri ? [params.rootUri] : []);
   for (const uri of roots) if (uri.startsWith('file:')) {
     const root = fileURLToPath(uri);
+    workspaceRoots.push(root);
     await scanDirectory(root);
     const watcher = watch(root, { recursive: true }, (_event, filename) => {
-      if (!filename || !filename.endsWith('.css') || filename.split(path.sep).some(part => ignoredDirectories.has(part))) return;
-      void serial(async () => { await indexFile(pathToFileURL(path.join(root, filename)).href); await publishDiagnostics(); });
+      if (!filename) return;
+      const abs = path.join(root, filename);
+      if (path.basename(filename) === '.gitignore') {
+        void serial(() => refreshGitignore(path.dirname(abs)));
+        return;
+      }
+      if (!filename.endsWith('.css') || isIgnored(abs)) return;
+      void serial(async () => { await indexFile(pathToFileURL(abs).href); await publishDiagnostics(); });
     });
     watcher.on('error', error => connection.console.error(`Workspace watcher: ${error.message}`));
     watchers.push(watcher);
@@ -163,7 +216,11 @@ documents.onDidClose(({ document: doc }) => {
 });
 connection.onDidChangeWatchedFiles(params => {
   void serial(async () => {
-    for (const change of params.changes) await indexFile(change.uri);
+    for (const change of params.changes) {
+      if (path.basename(fileURLToPath(change.uri)) === '.gitignore') {
+        await refreshGitignore(path.dirname(fileURLToPath(change.uri)));
+      } else await indexFile(change.uri);
+    }
     await publishDiagnostics();
   });
 });

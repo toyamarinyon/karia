@@ -5,7 +5,7 @@ A monorepo experimenting with a setup where editors and agents share the same CS
 ```text
 Zed / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
-       ├─ vscode-css-languageservice: standard CSS completion, hover, and diagnostics
+       ├─ vscode-css-languageservice: standard CSS completion and hover
        ├─ Babel: mapping imports and variable scopes in JS/TS/TSX
        └─ NDJSON worker → packages/karia (Rust / tree-sitter)
                               ├─ index of variables, classes, and definition sites
@@ -64,7 +64,7 @@ pnpm run karia check apps/demo/src --format json
 
 Unlike `npm run`, pnpm passes arguments to scripts without `--`. Agents that want only JSON output can use `node packages/karia/bin/karia.js …`, which avoids pnpm/Turbo log noise.
 
-The CLI and the LSP share the same Rust index and variable diagnostics. Standard CSS syntax diagnostics are handled by the Microsoft library on the Node side, so the CLI's `check` is not a full CSS lint.
+The CLI and the LSP share the same Rust index and variable diagnostics. The LSP publishes only `unknown-custom-property`; standard CSS lint is intentionally out of scope and can be covered by running a linter such as Stylelint alongside this server.
 
 ## Verification
 
@@ -88,10 +88,12 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 ## Prototype boundaries
 
 - CSS variables are indexed across the CSS in the open workspace. Visibility through the import graph and the DOM cascade are unresolved — "a declaration is found" does not mean "it applies to that element".
+- Indexing skips `node_modules`, `dist`, `target`, `.git`, `.turbo`, and paths excluded by `.gitignore`. The CLI also honors parent-directory `.gitignore` and `.git/info/exclude`; the LSP only reads `.gitignore` files inside the workspace. Open documents stay indexed even when ignored.
 - Hover lists each declaration's value and conditions. Recursive resolution of variable aliases, color swatches, doc comments, rename, and find-references are not implemented.
 - CSS Modules covers regular local classes plus `:global`/`:local`. `composes`, ICSS exports, Vite's `localsConvention`, and exact parity with Sass/Less/PostCSS transforms are unsupported.
 - In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
 - Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
+- Published diagnostics are limited to `unknown-custom-property`. Standard CSS lint (syntax errors, duplicate declarations, etc.) is delegated to linters such as Stylelint.
 - Identifier detection at the CSS cursor position targets ordinary names; hover/completion for references containing CSS escapes has limitations.
 - The Rust index keeps a per-file Tree-sitter syntax tree and incrementally re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
 
@@ -104,7 +106,7 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 
 ## npm packages
 
-Two packages. `karia` contains the Rust native binary and CLI; `karia-lsp` is the Node LSP that depends on `karia`. Both are currently unpublished with `private: true`.
+Two packages. `karia` contains the Rust native binary and CLI; `karia-lsp` is the Node LSP that depends on `karia`. Both are published to npm by the release workflow.
 
 ```sh
 pnpm --dir packages/karia pack --pack-destination /tmp
@@ -113,6 +115,6 @@ pnpm --dir packages/karia pack --pack-destination /tmp
 
 Native binaries are bundled into the `karia` package as `bin/karia-<os>-<arch>[.exe]` (`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`). The `bin/karia.js` wrapper picks and launches the binary for your platform from `platform`/`arch` (musl is detected via `ldd` on Linux), and Windows ARM64 falls back to the x64 binary. `binaryPath` in `packages/karia/index.js` performs the same resolution, so the LSP never consults PATH and always uses the binary from its own dependency.
 
-Distribution follows the agent-browser approach. During development, `pnpm run build` copies the binary into `bin/` via `scripts/copy-native.js` after `cargo build`. On release, `.github/workflows/release.yml` builds 7 targets into `bin/`, pnpm-publishes `karia` and `karia-lsp`, and creates a GitHub Release tagged `v<version>`. `scripts/postinstall.js` downloads the matching binary from the GitHub Release when none exists in `bin/`, and does nothing while `private: true`. The `version` in `package.json` is synced to `Cargo.toml`/`karia-lsp` by `scripts/sync-version.js`.
+Distribution follows the agent-browser approach. During development, `pnpm run build` copies the binary into `bin/` via `scripts/copy-native.js` after `cargo build`. On release, `.github/workflows/release.yml` builds 7 targets into `bin/`, pnpm-publishes `karia` and `karia-lsp` via npm trusted publishing (OIDC, no token), and creates a GitHub Release tagged `v<version>`. `scripts/postinstall.js` downloads the matching binary from the GitHub Release when none exists in `bin/` (the download is skipped only when the package is marked private). The `version` in `package.json` is synced to `Cargo.toml`/`karia-lsp` by `scripts/sync-version.js`.
 
 After a global install, invoke it as `karia inspect src --token --surface`; installed into a project, use `npx karia inspect src --token --surface`.

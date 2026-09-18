@@ -220,6 +220,9 @@ importers:
       '@babel/types':
         specifier: ^7.28.4
         version: 7.29.8
+      ignore:
+        specifier: ^7.0.9
+        version: 7.0.9
       karia:
         specifier: workspace:*
         version: link:../karia
@@ -747,6 +750,10 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  ignore@7.0.9:
+    resolution: {integrity: sha512-brTTsvFRt5C1gGHtPst/281UjPD5t9fBqbgoMPlVWy11ZLTPfu7HxK4ZYqO9H7o/yC9rSTCI85EaQ4OoY12qYw==}
+    engines: {node: '>= 4'}
+
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
@@ -1251,6 +1258,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  ignore@7.0.9: {}
 
   js-tokens@4.0.0: {}
 
