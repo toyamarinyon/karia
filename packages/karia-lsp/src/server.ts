@@ -165,12 +165,13 @@ async function moduleDefinitions(uri: string, specifier: string) {
   if (!snapshots.has(target)) await indexFile(target);
   return core.call<Definition[]>('classes', { uri: target });
 }
+// Only index-derived diagnostics are published; standard CSS lint is left to
+// linters such as stylelint.
 async function publishDiagnostics() {
   for (const doc of documents.all()) {
     if (!isCss(doc.uri)) continue;
-    const diagnostics: Diagnostic[] = service.doValidation(doc, service.parseStylesheet(doc));
     const extra = await core.call<CoreDiagnostic[]>('diagnostics', { uri: doc.uri });
-    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' })));
+    const diagnostics: Diagnostic[] = extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' }));
     connection.sendDiagnostics({ uri: doc.uri, version: doc.version, diagnostics });
   }
 }

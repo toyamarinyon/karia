@@ -5,7 +5,7 @@ A monorepo experimenting with a setup where editors and agents share the same CS
 ```text
 Zed / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
-       ├─ vscode-css-languageservice: standard CSS completion, hover, and diagnostics
+       ├─ vscode-css-languageservice: standard CSS completion and hover
        ├─ Babel: mapping imports and variable scopes in JS/TS/TSX
        └─ NDJSON worker → packages/karia (Rust / cssparser)
                               ├─ index of variables, classes, and definition sites
@@ -64,7 +64,7 @@ pnpm run karia check apps/demo/src --format json
 
 Unlike `npm run`, pnpm passes arguments to scripts without `--`. Agents that want only JSON output can use `node packages/karia/bin/karia.js …`, which avoids pnpm/Turbo log noise.
 
-The CLI and the LSP share the same Rust index and variable diagnostics. Standard CSS syntax diagnostics are handled by the Microsoft library on the Node side, so the CLI's `check` is not a full CSS lint.
+The CLI and the LSP share the same Rust index and variable diagnostics. The LSP publishes only `unknown-custom-property`; standard CSS lint is intentionally out of scope and can be covered by running a linter such as Stylelint alongside this server.
 
 ## Verification
 
@@ -93,6 +93,7 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 - CSS Modules covers regular local classes plus `:global`/`:local`. `composes`, ICSS exports, Vite's `localsConvention`, and exact parity with Sass/Less/PostCSS transforms are unsupported.
 - In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
 - Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
+- Published diagnostics are limited to `unknown-custom-property`. Standard CSS lint (syntax errors, duplicate declarations, etc.) is delegated to linters such as Stylelint.
 - Identifier detection at the CSS cursor position targets ordinary names; hover/completion for references containing CSS escapes has limitations.
 - The Rust index re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
 
