@@ -1,7 +1,7 @@
 # karia-lsp
 
 CSS language server for CSS Modules and CSS custom properties, backed by the
-[karia](https://www.npmjs.com/package/karia) Rust engine.
+[karia-css](https://www.npmjs.com/package/karia-css) Rust engine.
 
 It combines Microsoft's `vscode-css-languageservice` (standard CSS completion,
 hover, diagnostics) with a Rust index of workspace variables and class names,

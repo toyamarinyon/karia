@@ -10,7 +10,7 @@ import fs from 'node:fs/promises';
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import ignore from 'ignore';
-import { binaryPath } from 'karia';
+import { binaryPath } from 'karia-css';
 import { moduleAccess } from './tsx.js';
 
 type Definition = { name: string; value: string; uri: string; start: number; end: number; context: string };

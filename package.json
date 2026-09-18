@@ -11,7 +11,7 @@
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "probe:css": "turbo run probe:css",
-    "karia": "turbo run cli --filter=karia --"
+    "karia": "turbo run cli --filter=karia-css --"
   },
   "devDependencies": {
     "turbo": "^2.10.8"

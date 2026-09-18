@@ -38,7 +38,7 @@ jobs:
           PRIVATE=$(node -p "require('./packages/karia/package.json').private === true")
           echo "karia version: $LOCAL_VERSION (private: $PRIVATE)"
 
-          NPM_VERSION=$(npm view karia version 2>/dev/null || echo "0.0.0")
+          NPM_VERSION=$(npm view karia-css version 2>/dev/null || echo "0.0.0")
           LSP_NPM_VERSION=$(npm view karia-lsp version 2>/dev/null || echo "0.0.0")
           echo "karia npm version: $NPM_VERSION"
           echo "karia-lsp npm version: $LSP_NPM_VERSION"
@@ -275,21 +275,21 @@ jobs:
           fi
           echo "All 7 platform binaries present and valid"
 
-      - name: Publish karia
+      - name: Stage karia-css
         if: needs.check-release.outputs.should_publish_karia == 'true'
         working-directory: packages/karia
         env:
-          PACKAGE_NAME: karia
+          PACKAGE_NAME: karia-css
           VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           set -euo pipefail
           if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks
+            pnpm stage publish --provenance --access public --no-git-checks
           fi
 
-      - name: Publish karia-lsp
+      - name: Stage karia-lsp
         if: needs.check-release.outputs.should_publish_lsp == 'true'
         working-directory: packages/karia-lsp
         env:
@@ -300,7 +300,7 @@ jobs:
           if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks
+            pnpm stage publish --provenance --access public --no-git-checks
           fi
 
   github-release:

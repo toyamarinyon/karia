@@ -223,7 +223,7 @@ importers:
       ignore:
         specifier: ^7.0.9
         version: 7.0.9
-      karia:
+      karia-css:
         specifier: workspace:*
         version: link:../karia
       vscode-css-languageservice:
@@ -254,7 +254,7 @@ importers:
 
   packages/protocol-tests:
     devDependencies:
-      karia:
+      karia-css:
         specifier: workspace:*
         version: link:../karia
       karia-lsp:

@@ -9,9 +9,9 @@ the postinstall script downloads it from the matching GitHub Release.
 ## Install
 
 ```sh
-npm install -g karia
+npm install -g karia-css
 # or in a project
-npm install -D karia
+npm install -D karia-css
 ```
 
 ## Usage
@@ -27,7 +27,7 @@ karia check src --format json
 `check` exits with code 1 when diagnostics exist and 2 for invalid arguments.
 `start`/`end` in the JSON output are UTF-8 byte offsets.
 
-From Node.js, `binaryPath` in `karia` resolves the bundled native binary for
+From Node.js, `binaryPath` in `karia-css` resolves the bundled native binary for
 the current platform without consulting PATH.
 
 ## Prototype boundaries
