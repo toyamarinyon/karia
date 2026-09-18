@@ -101,6 +101,11 @@ function locations(result) { return result == null ? [] : Array.isArray(result) 
   const classes = items(await query('completion', 'App.tsx', incomplete, 'styles.', 7));
   assert.ok(classes.some(x => x.label === 'card'));
   assert.ok(classes.some(x => x.label === 'button'));
+  const midLine = 'import styles from "./App.module.css";\n\nstyles.\nexport function App() { return null; }';
+  change('App.tsx', midLine, 3);
+  const midLineClasses = items(await query('completion', 'App.tsx', midLine, 'styles.\n', 7));
+  assert.ok(midLineClasses.some(x => x.label === 'card'));
+  change('App.tsx', incomplete, 4);
 
   open('tokens.css', tokens, 'css');
   change('tokens.css', ':root { --accent: hotpink; --fresh: 10px; }');

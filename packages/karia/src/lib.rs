@@ -2,6 +2,8 @@ use cssparser::{Parser, ParserInput, Token};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
+pub mod tsx;
+
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Definition {
     pub name: String,

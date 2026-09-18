@@ -11,9 +11,9 @@ import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import ignore from 'ignore';
 import { binaryPath } from 'karia-css';
-import { moduleAccess } from './tsx.js';
 
 type Definition = { name: string; value: string; uri: string; start: number; end: number; context: string };
+type ModuleAccess = { specifier: string; name: string; start: number; end: number };
 type CoreDiagnostic = { uri: string; message: string; start: number; end: number; code: string };
 const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
@@ -241,11 +241,13 @@ connection.onCompletion(params => serial(async (): Promise<CompletionItem[] | nu
     }
     return service.doComplete(doc, params.position, service.parseStylesheet(doc)).items;
   }
-  const access = moduleAccess(text, offset); if (!access) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!access) return null;
   const found = await moduleDefinitions(doc.uri, access.specifier);
   return [...new Map(found.map(d => [d.name, d])).values()].map(d => ({ label: d.name, kind: CompletionItemKind.Field,
     documentation: { kind: MarkupKind.Markdown, value: markdown([d]) },
-    textEdit: { range: { start: doc.positionAt(access.start), end: doc.positionAt(access.end) }, newText: d.name } }));
+    // The worker reports UTF-8 byte offsets; bytePosition converts to LSP positions.
+    textEdit: { range: { start: bytePosition(doc.uri, access.start), end: bytePosition(doc.uri, access.end) }, newText: d.name } }));
 }));
 connection.onHover(params => serial(async (): Promise<Hover | null> => {
   const doc = documents.get(params.textDocument.uri); if (!doc) return null;
@@ -258,7 +260,8 @@ connection.onHover(params => serial(async (): Promise<Hover | null> => {
     }
     return service.doHover(doc, params.position, service.parseStylesheet(doc));
   }
-  const access = moduleAccess(text, offset); if (!access) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!access) return null;
   const found = (await moduleDefinitions(doc.uri, access.specifier)).filter(d => d.name === access.name);
   return found.length ? { contents: { kind: MarkupKind.Markdown, value: markdown(found) } } : null;
 }));
@@ -270,7 +273,8 @@ connection.onDefinition(params => serial(async (): Promise<Location[] | Location
     if (token) return (await core.call<Definition[]>('inspect', { name: token.name })).map(location);
     return service.findDefinition(doc, params.position, service.parseStylesheet(doc));
   }
-  const access = moduleAccess(text, offset); if (!access) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!access) return null;
   return (await moduleDefinitions(doc.uri, access.specifier)).filter(d => d.name === access.name).map(location);
 }));
 connection.onShutdown(() => { for (const watcher of watchers) watcher.close(); core?.close(); });
