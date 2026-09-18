@@ -4,6 +4,7 @@ version = "0.0.2"
 schema_version = 1
 authors = ["Karia"]
 description = "Zed extension for the karia CSS language server."
+repository = "https://github.com/toyamarinyon/karia"
 capabilities = [{ kind = "npm:install", package = "karia-lsp" }]
 
 [language_servers.karia]
