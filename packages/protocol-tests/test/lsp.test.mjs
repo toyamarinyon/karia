@@ -64,7 +64,7 @@ function locations(result) { return result == null ? [] : Array.isArray(result) 
  test('real stdio LSP: CSS service + Rust index + unsaved CSS Modules', { timeout: 90000 }, async t => {
   const root = await mkdtemp(join(tmpdir(), 'css-lab-'));
   const tokens = ':root { --accent: #285a43; --space: 24px; }\n[data-theme="dark"] { --accent: #99ccaa; }';
-  const css = '/* 日本語 🌿 */\n.card { background: var(--accent); padding: var(--space); }\n.button { color: white; }';
+  const css = '/* 🌿 multibyte */\n.card { background: var(--accent); padding: var(--space); }\n.button { color: white; }';
   const tsx = 'import styles from "./App.module.css";\nexport const view = <div className={styles.card} />;';
   const uri = name => pathToFileURL(join(root, name)).href;
   await Promise.all([writeFile(join(root, 'tokens.css'), tokens), writeFile(join(root, 'App.module.css'), css), writeFile(join(root, 'App.tsx'), tsx)]);
