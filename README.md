@@ -7,7 +7,7 @@ Zed / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
        ├─ vscode-css-languageservice: standard CSS completion, hover, and diagnostics
        ├─ Babel: mapping imports and variable scopes in JS/TS/TSX
-       └─ NDJSON worker → packages/karia (Rust / cssparser)
+       └─ NDJSON worker → packages/karia (Rust / tree-sitter)
                               ├─ index of variables, classes, and definition sites
                               └─ karia CLI → Agent / CI
 ```
@@ -93,13 +93,13 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 - In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
 - Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
 - Identifier detection at the CSS cursor position targets ordinary names; hover/completion for references containing CSS escapes has limitations.
-- The Rust index re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
+- The Rust index keeps a per-file Tree-sitter syntax tree and incrementally re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
 
 ## Sources
 
 - [Microsoft CSS language service](https://github.com/microsoft/vscode-css-languageservice)
 - [Microsoft Node LSP library](https://github.com/microsoft/vscode-languageserver-node)
-- [cssparser](https://github.com/servo/rust-cssparser)
+- [tree-sitter](https://github.com/tree-sitter/tree-sitter) / [tree-sitter-css](https://github.com/tree-sitter/tree-sitter-css)
 - [Zed language extensions](https://zed.dev/docs/extensions/languages)
 
 ## npm packages
