@@ -1,22 +1,22 @@
 # Karia — CSS Modules × CSS variables × LSP
 
-Viteデモを使って、エディタとAgentが同じCSS解析を利用する構成を試すモノレポです。
+A monorepo experimenting with a setup where editors and agents share the same CSS analysis, using a Vite demo.
 
 ```text
 Zed / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
-       ├─ vscode-css-languageservice: 標準CSSの補完・hover・診断
-       ├─ Babel: JS/TS/TSXのimportと変数スコープの対応付け
+       ├─ vscode-css-languageservice: standard CSS completion, hover, and diagnostics
+       ├─ Babel: mapping imports and variable scopes in JS/TS/TSX
        └─ NDJSON worker → packages/karia (Rust / cssparser)
-                              ├─ 変数・クラス・定義位置の索引
+                              ├─ index of variables, classes, and definition sites
                               └─ karia CLI → Agent / CI
 ```
 
-`vscode-langservers-extracted`やTypeScript Language Service Pluginには依存しません。Rust workerは必須です。`.d.ts`生成も不要ですが、`tsc`にCSS Moduleの厳密な型を追加するものではありません。
+No dependency on `vscode-langservers-extracted` or a TypeScript Language Service Plugin. The Rust worker is required. No `.d.ts` generation is needed either, though this does not add strict CSS Module types to `tsc`.
 
-## 起動
+## Getting started
 
-検証環境: Node.js 26.8.2、pnpm 12.4.2、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。macOSとLinuxで動作し、GitHub Actionsでも両方のOSでbuild・typecheck・lint・testを実行します。
+Verified environment: Node.js 26.8.2, pnpm 12.4.2, Rust 1.98.1. The Rust version is pinned via `rust-toolchain.toml`. Works on macOS and Linux; GitHub Actions runs build, typecheck, lint, and test on both OSes.
 
 ```sh
 git clone https://github.com/toyamarinyon/karia.git
@@ -26,49 +26,49 @@ pnpm run build
 pnpm run dev
 ```
 
-`apps/demo`が元の`hello-vite-css-lsp`です。ポート固定で起動する場合:
+`apps/demo` is the original `hello-vite-css-lsp`. To run on a fixed port:
 
 ```sh
 pnpm --filter @css-lab/demo run dev --host 127.0.0.1 --port 5175 --strictPort
 ```
 
-ビルドが必要なのはツール自身の初回導入・実装変更時です。利用するCSS/TSXの編集時は、保存やbuildをせずLSPへ反映します。
+A build is only needed when first setting up the tools or when the implementation changes. Edits to the CSS/TSX you work with are reflected in the LSP without saving or building.
 
-## エディタで試す
+## Try it in an editor
 
-[Zed開発用拡張](editors/zed/README.md)をインストールし、このモノレポのルートを開いてください。`.zed/settings.json`はプロジェクト内のCSSサーバーを`karia`に切り替え、TSXでは既存のTypeScriptサーバーと併用します。
+Install the [Zed development extension](editors/zed/README.md) and open the root of this monorepo. `.zed/settings.json` switches the project's CSS server to `karia`, and in TSX it runs alongside the existing TypeScript server.
 
-1. `apps/demo/src/App.module.css`で`var(--surface)`をhover → 別ファイルの宣言値と定義元。
-2. 同じ場所で定義ジャンプ → `tokens.css`。
-3. `var(--`と入力 → ワークスペースの変数と値の補完。
-4. `apps/demo/src/App.tsx`で`styles.`と入力 → `App.module.css`のクラス補完。
-5. CSSにクラスや変数を追加 → 未保存のまま補完へ反映。
-6. 未保存の変更を破棄してファイルを閉じる → ディスク上の定義に戻る。
+1. Hover `var(--surface)` in `apps/demo/src/App.module.css` → declared values and definition site in another file.
+2. Jump to definition at the same spot → `tokens.css`.
+3. Type `var(--` → completion of workspace variables with their values.
+4. Type `styles.` in `apps/demo/src/App.tsx` → class completion from `App.module.css`.
+5. Add a class or variable to the CSS → reflected in completion without saving.
+6. Discard unsaved changes and close the file → falls back to the on-disk definitions.
 
-標準LSPクライアントからは、以下のプロセスを直接起動します。LSPのstdoutにはJSON-RPCだけを流すため、`turbo`経由でサーバーを起動しないでください。
+From a standard LSP client, launch the process below directly. The server's stdout carries only JSON-RPC, so do not start it via `turbo`.
 
 ```sh
 node packages/karia-lsp/dist/server.js --stdio
 ```
 
-## Agent / CIから試す
+## Try it from an agent / CI
 
-ビルド済みRust CLIはNode.jsなしで動きます。pnpm workspaceからは次の短いコマンドで呼び出せます。
+The built Rust CLI runs without Node.js. From the pnpm workspace you can invoke it with short commands:
 
 ```sh
 pnpm run karia inspect apps/demo/src --token --surface
 pnpm run karia check apps/demo/src --format json
 ```
 
-`inspect`は宣言値・定義元・セレクターなどの条件を返します。`check`は索引内に宣言が見つからないCSS変数を検出し、診断があれば終了コード1、引数不正は2です。JSONの`start`/`end`はUTF-8バイト位置です。LSP側ではUTF-16位置へ変換します。
+`inspect` returns conditions such as declared values, definition sites, and selectors. `check` detects CSS variables with no declaration in the index; it exits with code 1 when diagnostics exist and 2 for invalid arguments. `start`/`end` in the JSON are UTF-8 byte offsets, which the LSP converts to UTF-16 positions.
 
-pnpmは`npm run`と違って`--`なしで引数をスクリプトへ渡します。JSONだけを受け取りたいAgentからは、pnpm/Turboのログが混ざらない`node packages/karia/bin/karia.js …`を使えます。
+Unlike `npm run`, pnpm passes arguments to scripts without `--`. Agents that want only JSON output can use `node packages/karia/bin/karia.js …`, which avoids pnpm/Turbo log noise.
 
-CLIとLSPはRustの同じ索引・変数診断を使います。標準CSS構文診断はNode側のMicrosoftライブラリが担当するため、CLIの`check`はCSS全体のlintではありません。
+The CLI and the LSP share the same Rust index and variable diagnostics. Standard CSS syntax diagnostics are handled by the Microsoft library on the Node side, so the CLI's `check` is not a full CSS lint.
 
-## 検証
+## Verification
 
-開発環境での検証では、Zed開発用拡張をインストールし、`--surface`のhoverに`#ffffff`と`tokens.css`、TSXの`styles.page`のhoverにCSS宣言が表示されることを画面上でも確認しました。TSXではTypeScript側の型hoverも併記されます。
+In local verification we installed the Zed development extension and confirmed on screen that hovering `--surface` shows `#ffffff` and `tokens.css`, and hovering `styles.page` in TSX shows the CSS declaration. In TSX the TypeScript type hover is shown alongside it.
 
 ```sh
 pnpm run build
@@ -78,41 +78,41 @@ pnpm test
 pnpm run probe:css
 ```
 
-- Rust単体テスト: Unicode位置、未保存更新相当の置換、コメント・文字列・`:global`除外、ネスト、エスケープ識別子、変数fallback。
-- Babel単体テスト: importの対応付け、同名ローカル変数、途中入力、文字列・コメント除外。
-- プロセス間テスト: 実際のRust CLIとstdio LSPを起動して補完・hover・定義・編集/close・ファイル追加/削除を検証。
-- `probe:css`: Microsoftライブラリ単体の元の実験を維持。
+- Rust unit tests: Unicode positions, replacement equivalent to unsaved updates, exclusion of comments/strings/`:global`, nesting, escaped identifiers, variable fallbacks.
+- Babel unit tests: import mapping, same-named local variables, mid-typing input, string/comment exclusion.
+- Inter-process tests: launch the real Rust CLI and stdio LSP to verify completion, hover, definition, edit/close, and file add/delete.
+- `probe:css`: preserves the original experiment against the Microsoft library alone.
 
-Turborepoの実処理は各パッケージに置き、LSP→Rustの依存をpnpm workspaceに宣言しています。ネイティブ成果物はアーキテクチャ依存のため、RustタスクのTurboキャッシュを無効にし、Cargo自身の増分ビルドを使います。
+Turborepo's actual work lives in each package, with the LSP→Rust dependency declared via pnpm workspaces. Native artifacts are architecture-dependent, so Turbo caching is disabled for Rust tasks and Cargo's own incremental build is used instead.
 
-## プロトタイプの境界
+## Prototype boundaries
 
-- CSS変数は開いたワークスペースのCSSを索引化します。importグラフによる可視性やDOMのカスケードは未解決です。「宣言が見つかる」は「その要素に適用される」と同義ではありません。
-- hoverは各宣言の値と条件を列挙します。変数エイリアスの再帰解決、色スウォッチ、説明コメント、rename、参照検索は未実装です。
-- CSS Modulesは通常のローカルクラスと`:global`/`:local`を対象とします。`composes`、ICSS export、Viteの`localsConvention`、Sass/Less/PostCSS変換との完全一致は未対応です。
-- JS/TS/TSXでは相対パスのdefault CSS Module importと直接のプロパティアクセスが対象です。パスエイリアス、再export、分割代入、動的キーは未対応です。
-- TSXで不明なクラスの診断や`tsc`用の型定義生成はまだありません。CLIが検査するのはCSS変数です。
-- CSSカーソル位置の識別子判定は通常の名前を対象とし、CSSエスケープを含む参照のhover/補完には制限があります。
-- Rust索引は変更されたCSSを再解析します。LSPはリクエストを直列化して順序を保証する初期実装で、大規模プロジェクトの性能最適化はまだ行っていません。
+- CSS variables are indexed across the CSS in the open workspace. Visibility through the import graph and the DOM cascade are unresolved — "a declaration is found" does not mean "it applies to that element".
+- Hover lists each declaration's value and conditions. Recursive resolution of variable aliases, color swatches, doc comments, rename, and find-references are not implemented.
+- CSS Modules covers regular local classes plus `:global`/`:local`. `composes`, ICSS exports, Vite's `localsConvention`, and exact parity with Sass/Less/PostCSS transforms are unsupported.
+- In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
+- Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
+- Identifier detection at the CSS cursor position targets ordinary names; hover/completion for references containing CSS escapes has limitations.
+- The Rust index re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
 
-## ソース
+## Sources
 
 - [Microsoft CSS language service](https://github.com/microsoft/vscode-css-languageservice)
 - [Microsoft Node LSP library](https://github.com/microsoft/vscode-languageserver-node)
 - [cssparser](https://github.com/servo/rust-cssparser)
 - [Zed language extensions](https://zed.dev/docs/extensions/languages)
 
-## npmパッケージ
+## npm packages
 
-2パッケージ構成です。`karia`はRustネイティブバイナリとCLI、`karia-lsp`は`karia`に依存するNodeのLSPです。どちらも現在は未公開で`private: true`にしてあります。
+Two packages. `karia` contains the Rust native binary and CLI; `karia-lsp` is the Node LSP that depends on `karia`. Both are currently unpublished with `private: true`.
 
 ```sh
 pnpm --dir packages/karia pack --pack-destination /tmp
-# 作成されたtgzを別のプロジェクトへインストールして利用できます。
+# You can install the resulting tgz into another project.
 ```
 
-ネイティブバイナリは`bin/karia-<os>-<arch>[.exe]`（`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`）として`karia`パッケージに同梱します。`bin/karia.js`ラッパーが`platform`/`arch`（Linuxは`ldd`でmusl判定）から自分の環境のバイナリを選んで起動し、Windows ARM64はx64バイナリへフォールバックします。`packages/karia/index.js`の`binaryPath`も同じ解決を行うため、LSP側はPATHを見ず常に自分の依存のバイナリを使います。
+Native binaries are bundled into the `karia` package as `bin/karia-<os>-<arch>[.exe]` (`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`). The `bin/karia.js` wrapper picks and launches the binary for your platform from `platform`/`arch` (musl is detected via `ldd` on Linux), and Windows ARM64 falls back to the x64 binary. `binaryPath` in `packages/karia/index.js` performs the same resolution, so the LSP never consults PATH and always uses the binary from its own dependency.
 
-配布はagent-browser方式です。開発時は`pnpm run build`が`cargo build`後に`scripts/copy-native.js`で`bin/`へコピーします。リリース時は`.github/workflows/release.yml`が7ターゲットをビルドして`bin/`に集約し、`karia`・`karia-lsp`をpnpm publish、タグ`v<version>`のGitHub Releaseを作成します。`scripts/postinstall.js`は`bin/`に対応バイナリが無い場合にGitHub Releaseからダウンロードし、`private: true`の間は何もしません。`package.json`の`version`が`scripts/sync-version.js`で`Cargo.toml`/`karia-lsp`へ同期されます。
+Distribution follows the agent-browser approach. During development, `pnpm run build` copies the binary into `bin/` via `scripts/copy-native.js` after `cargo build`. On release, `.github/workflows/release.yml` builds 7 targets into `bin/`, pnpm-publishes `karia` and `karia-lsp`, and creates a GitHub Release tagged `v<version>`. `scripts/postinstall.js` downloads the matching binary from the GitHub Release when none exists in `bin/`, and does nothing while `private: true`. The `version` in `package.json` is synced to `Cargo.toml`/`karia-lsp` by `scripts/sync-version.js`.
 
-グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。
+After a global install, invoke it as `karia inspect src --token --surface`; installed into a project, use `npx karia inspect src --token --surface`.

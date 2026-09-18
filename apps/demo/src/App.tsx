@@ -6,12 +6,12 @@ export default function App() {
   return (
     <main className={styles.page}>
       <p className={styles.label}>CSS MODULES × CSS LANGUAGE SERVICE</p>
-      <h1>普通のCSSで、試そう。</h1>
-      <p>背景色は tokens.css、ボタンの色はこのCSS Moduleで定義しています。</p>
+      <h1>Try it with plain CSS.</h1>
+      <p>The background color comes from tokens.css; the button color is defined in this CSS Module.</p>
       <button className={styles.button} onClick={() => setCount(count + 1)}>
-        クリック回数: {count}
+        Click count: {count}
       </button>
-      <p className={styles.note}>補完の実測: <code>npm run probe:css</code></p>
+      <p className={styles.note}>Measured completion behavior: <code>npm run probe:css</code></p>
     </main>
   )
 }

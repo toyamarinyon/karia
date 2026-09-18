@@ -1,14 +1,14 @@
 # CSS Language Service Lab
 
-Vite + React + TypeScript + CSS Modules の最小デモ。
-Microsoft の `vscode-css-languageservice` を直接呼び、エディタに依存せず挙動を検証します。
+A minimal demo of Vite + React + TypeScript + CSS Modules.
+It calls Microsoft's `vscode-css-languageservice` directly to verify its behavior without depending on an editor.
 
 ```sh
 pnpm install
 pnpm run dev
 ```
 
-## 再現コマンド
+## Reproduction commands
 
 ```sh
 pnpm run probe:css
@@ -17,47 +17,47 @@ pnpm run lint
 pnpm run build
 ```
 
-`probe:css` は `scripts/probe-css.mjs` を実行し、詳細を `probe-results.json` に保存します。
-カーソル位置を `|` で指定したCSSをメモリ上に作り、言語サービスのAPIを呼びます。
-`src/tokens.css` は実際のファイルを読み込みます。結果は成功を仮定せず記録します。
+`probe:css` runs `scripts/probe-css.mjs` and saves the details to `probe-results.json`.
+It builds CSS in memory with the cursor position marked by `|` and calls the language service APIs.
+`src/tokens.css` is read from the actual file. Results are recorded without assuming success.
 
-## 実測結果（vscode-css-languageservice 6.3.10）
+## Measured results (vscode-css-languageservice 6.3.10)
 
-| 検証 | 結果 |
+| Check | Result |
 | --- | --- |
-| CSSプロパティ名の補完 | `display` が候補に出る |
-| 同一ファイルの変数を `var(--...)` で補完 | `--local-accent` が出る |
-| 別ファイルを同じサービスで先にparse | 変数候補に出ない |
-| `@import "./tokens.css"` 経由の変数補完 | 出ない |
-| Custom Dataで変数名をpropertiesへ登録し `var(--...)` を補完 | 出ない |
-| Custom Dataで登録した変数名の宣言側補完 | `--catalog-color` が出る |
-| 同一ファイルの変数の定義ジャンプ | 定義位置が返る |
-| import先の変数の定義ジャンプ | null |
-| importのファイルリンク | tokens.cssへのリンクが返る |
-| 未定義変数 `var(--does-not-exist)` の診断 | なし |
-| CSSプロパティの誤字 `colro` の診断 | 警告あり |
-| CSS Modulesの `:global(body)` の診断 | 今回の例では警告なし |
+| Completion of CSS property names | `display` appears as a candidate |
+| Completing same-file variables via `var(--...)` | `--local-accent` appears |
+| Parsing another file first with the same service | Variable candidates do not appear |
+| Variable completion via `@import "./tokens.css"` | Does not appear |
+| Registering variable names as properties via Custom Data, then completing `var(--...)` | Does not appear |
+| Declaration-side completion of variable names registered via Custom Data | `--catalog-color` appears |
+| Go-to-definition on a same-file variable | Definition position is returned |
+| Go-to-definition on a variable in an imported file | null |
+| File link for the import | A link to tokens.css is returned |
+| Diagnostics for an undefined variable `var(--does-not-exist)` | None |
+| Diagnostics for a misspelled CSS property `colro` | Warning present |
+| Diagnostics for CSS Modules `:global(body)` | No warning in this example |
 
-変数参照上のhoverは、今回の例では変数の解決値ではなくCSSの `color` プロパティの説明でした。
+Hovering a variable reference showed the description of the CSS `color` property rather than the variable's resolved value in this example.
 
-## 分かることと限界
+## What we learned and its limits
 
-このパッケージは言語サービスのライブラリで、単体のLSPサーバーやエディタ拡張ではありません。
-**npmに入れるだけでZedの補完が変わるわけではありません。** このプロジェクトには独自LSPやZed設定を追加していません。
+This package is a language service library, not a standalone LSP server or editor extension.
+**Simply adding it to npm does not change Zed's completion.** This project does not add a custom LSP or Zed configuration.
 
-同一ドキュメントのCSS支援はできますが、今回試した標準APIの使い方では、別ファイルのCSS変数を自動で横断検索しません。
-ファイルシステムプロバイダーと参照URL解決も渡していますが、`@import` のリンク解決と変数の解決は別です。
-Custom Dataの `properties` 登録も、変数参照の補完カタログの代わりにはなりませんでした。
-追加の索引・補完処理を持つホストやLSPなら挙動は変わり得ます。
+It can assist with CSS in the same document, but with the standard API usage we tried, it does not automatically search CSS variables across files.
+We also passed a file system provider and reference URL resolution, but `@import` link resolution and variable resolution are separate.
+Registering `properties` via Custom Data did not substitute for a completion catalog for variable references either.
+A host or LSP with additional indexing/completion could change this behavior.
 
-CSS Modules自体はViteが処理します。`styles.page` の厳密な補完を補うプラグインや型生成は、CSS言語サービスとの効果の混同を避けるため、この検証には追加していません。
+Vite handles CSS Modules itself. To avoid conflating effects with the CSS language service, no plugins or type generation to supplement strict `styles.page` completion were added for this verification.
 
-## ファイル
+## Files
 
-- `src/App.tsx`: CSS Moduleを利用するReactコンポーネント
-- `src/App.module.css`: ローカル変数と別ファイルの変数を利用
-- `src/tokens.css`: 共通変数（index.css経由で読み込み）
-- `scripts/probe-css.mjs`: 補完・定義・診断の再現スクリプト
-- `probe-results.json`: 実際のAPI応答
+- `src/App.tsx`: React component using a CSS Module
+- `src/App.module.css`: uses local variables and variables from another file
+- `src/tokens.css`: shared variables (loaded via index.css)
+- `scripts/probe-css.mjs`: reproduction script for completion, definition, and diagnostics
+- `probe-results.json`: actual API responses
 
-公式: https://github.com/microsoft/vscode-css-languageservice
+Official: https://github.com/microsoft/vscode-css-languageservice
