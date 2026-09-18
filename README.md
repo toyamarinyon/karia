@@ -106,7 +106,7 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 
 ## npm packages
 
-Two packages. `karia` contains the Rust native binary and CLI; `karia-lsp` is the Node LSP that depends on `karia`. Both are currently unpublished with `private: true`.
+Two packages. `karia` contains the Rust native binary and CLI; `karia-lsp` is the Node LSP that depends on `karia`. Both are published to npm by the release workflow.
 
 ```sh
 pnpm --dir packages/karia pack --pack-destination /tmp
@@ -115,6 +115,6 @@ pnpm --dir packages/karia pack --pack-destination /tmp
 
 Native binaries are bundled into the `karia` package as `bin/karia-<os>-<arch>[.exe]` (`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`). The `bin/karia.js` wrapper picks and launches the binary for your platform from `platform`/`arch` (musl is detected via `ldd` on Linux), and Windows ARM64 falls back to the x64 binary. `binaryPath` in `packages/karia/index.js` performs the same resolution, so the LSP never consults PATH and always uses the binary from its own dependency.
 
-Distribution follows the agent-browser approach. During development, `pnpm run build` copies the binary into `bin/` via `scripts/copy-native.js` after `cargo build`. On release, `.github/workflows/release.yml` builds 7 targets into `bin/`, pnpm-publishes `karia` and `karia-lsp`, and creates a GitHub Release tagged `v<version>`. `scripts/postinstall.js` downloads the matching binary from the GitHub Release when none exists in `bin/`, and does nothing while `private: true`. The `version` in `package.json` is synced to `Cargo.toml`/`karia-lsp` by `scripts/sync-version.js`.
+Distribution follows the agent-browser approach. During development, `pnpm run build` copies the binary into `bin/` via `scripts/copy-native.js` after `cargo build`. On release, `.github/workflows/release.yml` builds 7 targets into `bin/`, pnpm-publishes `karia` and `karia-lsp` via npm trusted publishing (OIDC, no token), and creates a GitHub Release tagged `v<version>`. `scripts/postinstall.js` downloads the matching binary from the GitHub Release when none exists in `bin/` (the download is skipped only when the package is marked private). The `version` in `package.json` is synced to `Cargo.toml`/`karia-lsp` by `scripts/sync-version.js`.
 
 After a global install, invoke it as `karia inspect src --token --surface`; installed into a project, use `npx karia inspect src --token --surface`.

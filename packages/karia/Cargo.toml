@@ -1,7 +1,10 @@
 [package]
 name = "karia"
-version = "0.0.0"
+version = "0.0.1"
 edition = "2024"
+license = "MIT"
+description = "Query CSS custom properties and CSS Modules using a Rust analysis engine"
+repository = "https://github.com/toyamarinyon/karia"
 
 [dependencies]
 cssparser = "0.35"

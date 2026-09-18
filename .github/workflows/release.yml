@@ -272,12 +272,10 @@ jobs:
           echo "All 7 platform binaries present and valid"
 
       - name: Publish karia
-        if: needs.check-release.outputs.should_publish_karia == 'true' && env.NPM_TOKEN != ''
+        if: needs.check-release.outputs.should_publish_karia == 'true'
         working-directory: packages/karia
         env:
           PACKAGE_NAME: karia
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           set -euo pipefail
@@ -288,12 +286,10 @@ jobs:
           fi
 
       - name: Publish karia-lsp
-        if: needs.check-release.outputs.should_publish_lsp == 'true' && env.NPM_TOKEN != ''
+        if: needs.check-release.outputs.should_publish_lsp == 'true'
         working-directory: packages/karia-lsp
         env:
           PACKAGE_NAME: karia-lsp
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ needs.check-release.outputs.version }}
         run: |
           set -euo pipefail

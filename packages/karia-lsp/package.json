@@ -1,22 +1,52 @@
 {
   "name": "karia-lsp",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.0.1",
   "type": "module",
-  "exports": { ".": "./dist/server.js", "./package.json": "./package.json" },
-  "bin": { "karia-lsp": "dist/server.js" },
-  "files": ["dist"],
-  "scripts": { "build": "tsc -p tsconfig.json", "typecheck": "tsc -p tsconfig.json --noEmit", "lint": "oxlint src", "test": "node --test" },
+  "exports": {
+    ".": "./dist/server.js",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "karia-lsp": "dist/server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src",
+    "test": "node --test"
+  },
   "dependencies": {
-    "ignore": "^7.0.9",
-    "karia": "workspace:*",
     "@babel/parser": "^7.28.4",
     "@babel/traverse": "^7.28.4",
     "@babel/types": "^7.28.4",
+    "ignore": "^7.0.9",
+    "karia": "workspace:*",
     "vscode-css-languageservice": "^6.3.10",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.14",
     "vscode-languageserver-types": "^3.17.5"
   },
-  "devDependencies": { "@types/babel__traverse": "^7.20.7", "@types/node": "^24.0.0", "oxlint": "^1.81.0", "typescript": "^7.0.2" }
+  "devDependencies": {
+    "@types/babel__traverse": "^7.20.7",
+    "@types/node": "^24.0.0",
+    "oxlint": "^1.81.0",
+    "typescript": "^7.0.2"
+  },
+  "description": "CSS language server for CSS Modules and CSS custom properties, backed by the karia Rust engine",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toyamarinyon/karia.git",
+    "directory": "packages/karia-lsp"
+  },
+  "keywords": [
+    "css",
+    "css-modules",
+    "css-variables",
+    "language-server",
+    "lsp"
+  ]
 }
