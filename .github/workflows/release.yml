@@ -275,7 +275,7 @@ jobs:
           fi
           echo "All 7 platform binaries present and valid"
 
-      - name: Publish karia
+      - name: Stage karia-css
         if: needs.check-release.outputs.should_publish_karia == 'true'
         working-directory: packages/karia
         env:
@@ -286,10 +286,10 @@ jobs:
           if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks
+            pnpm stage publish --provenance --access public --no-git-checks
           fi
 
-      - name: Publish karia-lsp
+      - name: Stage karia-lsp
         if: needs.check-release.outputs.should_publish_lsp == 'true'
         working-directory: packages/karia-lsp
         env:
@@ -300,7 +300,7 @@ jobs:
           if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
             echo "${PACKAGE_NAME}@${VERSION} is already published; skipping"
           else
-            pnpm publish --provenance --access public --no-git-checks
+            pnpm stage publish --provenance --access public --no-git-checks
           fi
 
   github-release:
