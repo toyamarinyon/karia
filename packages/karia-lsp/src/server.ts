@@ -201,7 +201,7 @@ connection.onInitialize(params => serial(async () => {
     textDocumentSync: TextDocumentSyncKind.Incremental,
     completionProvider: { triggerCharacters: ['.', '-', '(', '"', "'"] },
     hoverProvider: true, definitionProvider: true,
-  }, serverInfo: { name: 'karia', version: '0.0.0' } };
+  }, serverInfo: { name: 'karia', version: '0.0.2' } };
 }));
 documents.onDidChangeContent(({ document: doc }) => {
   // Snapshot the event text before queuing: later edits may mutate document state.
