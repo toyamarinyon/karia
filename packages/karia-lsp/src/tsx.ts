@@ -56,7 +56,7 @@ export function moduleAccess(text: string, offset: number): ModuleAccess | undef
       if (!binding?.path.isImportDefaultSpecifier()) return;
       // Incomplete `styles.` has no MemberExpression yet. The identifier must be
       // immediately followed by a dot at the cursor (comments/strings are excluded by AST).
-      const after = text.slice(p.node.end ?? 0, cursor + 1);
+      const after = text.slice(p.node.end ?? 0, cursor);
       if (cursor >= (p.node.end ?? 0) && /^\s*\.$/.test(after)) result = { specifier: imported.get(p.node.name)!, name: '', start: cursor, end: cursor };
     },
   });

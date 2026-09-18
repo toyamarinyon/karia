@@ -27,3 +27,11 @@ test('supports incomplete JSX member access', () => {
   const r = moduleAccess(s, s.indexOf('styles.') + 'styles.'.length);
   assert.deepEqual(r, { specifier: './a.module.css', name: '', start: s.indexOf('styles.') + 'styles.'.length, end: s.indexOf('styles.') + 'styles.'.length });
 });
+test('incomplete dot before a following statement', () => {
+  const s = `import styles from './a.module.css';\n\nstyles.\nexport function f() { return styles.page; }`;
+  const cursor = s.indexOf('styles.\n') + 'styles.'.length;
+  assert.deepEqual(moduleAccess(s, cursor), { specifier: './a.module.css', name: '', start: cursor, end: cursor });
+  const partial = s.replace('styles.\n', 'styles.pa\n');
+  const r = moduleAccess(partial, partial.indexOf('styles.pa') + 'styles.pa'.length);
+  assert.equal(r?.name, 'pa');
+});
