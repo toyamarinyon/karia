@@ -1,8 +1,8 @@
 # Karia CSS tooling lab
 
 - `apps/demo`: Vite + React + CSS Modules reference app.
-- `packages/css-core`: Rust parsing/index library, standalone CLI, NDJSON worker.
-- `packages/css-lsp`: Node/TypeScript LSP wrapping Microsoft vscode-css-languageservice and the Rust worker.
+- `packages/karia`: Rust parsing/index library, standalone CLI, NDJSON worker.
+- `packages/karia-lsp`: Node/TypeScript LSP wrapping Microsoft vscode-css-languageservice and the Rust worker.
 - `editors/zed`: thin development adapter; core features must stay editor-independent.
 
 Use npm workspaces and Turborepo. Root scripts only delegate to `turbo run`; actual commands live in packages. Declare workspace dependencies to order builds. Do not add typescript-plugin-css-modules or vscode-langservers-extracted. Do not rely on TypeScript compiler internals.

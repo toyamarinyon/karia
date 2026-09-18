@@ -1,0 +1,32 @@
+{
+  "name": "karia",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./index.d.ts",
+  "bin": {
+    "karia": "bin/karia.js"
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "bin",
+    "scripts"
+  ],
+  "scripts": {
+    "version:sync": "node scripts/sync-version.js",
+    "build": "npm run version:sync && cargo build --release --locked && node scripts/copy-native.js",
+    "test": "cargo test --locked",
+    "lint": "cargo fmt --check && cargo clippy --locked -- -D warnings",
+    "cli": "node scripts/run-cli.js",
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "description": "Query CSS custom properties and CSS Modules using a Rust analysis engine"
+}

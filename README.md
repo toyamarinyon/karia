@@ -4,10 +4,10 @@ Viteデモを使って、エディタとAgentが同じCSS解析を利用する�
 
 ```text
 Zed / LSP client
-  └─ packages/css-lsp (TypeScript 7 / Node.js)
+  └─ packages/karia-lsp (TypeScript 7 / Node.js)
        ├─ vscode-css-languageservice: 標準CSSの補完・hover・診断
        ├─ Babel: JS/TS/TSXのimportと変数スコープの対応付け
-       └─ NDJSON worker → packages/css-core (Rust / cssparser)
+       └─ NDJSON worker → packages/karia (Rust / cssparser)
                               ├─ 変数・クラス・定義位置の索引
                               └─ karia CLI → Agent / CI
 ```
@@ -16,7 +16,7 @@ Zed / LSP client
 
 ## 起動
 
-検証環境: Node.js 26.8.2、npm 11.19.1、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。
+検証環境: Node.js 26.8.2、npm 11.19.1、Rust 1.98.1。Rustのバージョンは`rust-toolchain.toml`で固定しています。macOSとLinuxで動作し、GitHub Actionsでも両方のOSでbuild・typecheck・lint・testを実行します。
 
 ```sh
 git clone https://github.com/toyamarinyon/karia.git
@@ -36,7 +36,7 @@ npm run dev --workspace=@css-lab/demo -- --host 127.0.0.1 --port 5175 --strictPo
 
 ## エディタで試す
 
-[Zed開発用拡張](editors/zed/README.md)をインストールし、このモノレポのルートを開いてください。`.zed/settings.json`はプロジェクト内のCSSサーバーを`css-lab`に切り替え、TSXでは既存のTypeScriptサーバーと併用します。
+[Zed開発用拡張](editors/zed/README.md)をインストールし、このモノレポのルートを開いてください。`.zed/settings.json`はプロジェクト内のCSSサーバーを`karia`に切り替え、TSXでは既存のTypeScriptサーバーと併用します。
 
 1. `apps/demo/src/App.module.css`で`var(--surface)`をhover → 別ファイルの宣言値と定義元。
 2. 同じ場所で定義ジャンプ → `tokens.css`。
@@ -48,7 +48,7 @@ npm run dev --workspace=@css-lab/demo -- --host 127.0.0.1 --port 5175 --strictPo
 標準LSPクライアントからは、以下のプロセスを直接起動します。LSPのstdoutにはJSON-RPCだけを流すため、`turbo`経由でサーバーを起動しないでください。
 
 ```sh
-node packages/css-lsp/dist/server.js --stdio
+node packages/karia-lsp/dist/server.js --stdio
 ```
 
 ## Agent / CIから試す
@@ -104,11 +104,15 @@ Turborepoの実処理は各パッケージに置き、LSP→Rustの依存をnpm 
 
 ## npmパッケージ
 
-公開名・コマンド名は`karia`です。現在は未公開のローカルパッケージで、`private: true`にしてあります。
+2パッケージ構成です。`karia`はRustネイティブバイナリとCLI、`karia-lsp`は`karia`に依存するNodeのLSPです。どちらも現在は未公開で`private: true`にしてあります。
 
 ```sh
 npm pack --workspace=karia --pack-destination /tmp
 # 作成されたtgzを別のプロジェクトへインストールして利用できます。
 ```
 
-現在のパッケージは検証環境のmacOS arm64バイナリを同梱し、`os`/`cpu`で対象を明示しています。一般公開前にはOS・CPU別の配布を整備します。グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。
+ネイティブバイナリは`bin/karia-<os>-<arch>[.exe]`（`linux`/`linux-musl`/`darwin`/`win32` × `x64`/`arm64`）として`karia`パッケージに同梱します。`bin/karia.js`ラッパーが`platform`/`arch`（Linuxは`ldd`でmusl判定）から自分の環境のバイナリを選んで起動し、Windows ARM64はx64バイナリへフォールバックします。`packages/karia/index.js`の`binaryPath`も同じ解決を行うため、LSP側はPATHを見ず常に自分の依存のバイナリを使います。
+
+配布はagent-browser方式です。開発時は`npm run build`が`cargo build`後に`scripts/copy-native.js`で`bin/`へコピーします。リリース時は`.github/workflows/release.yml`が7ターゲットをビルドして`bin/`に集約し、`karia`・`karia-lsp`をnpm publish、タグ`v<version>`のGitHub Releaseを作成します。`scripts/postinstall.js`は`bin/`に対応バイナリが無い場合にGitHub Releaseからダウンロードし、`private: true`の間は何もしません。`package.json`の`version`が`scripts/sync-version.js`で`Cargo.toml`/`karia-lsp`へ同期されます。
+
+グローバルインストール後の呼び出しは`karia inspect src --token --surface`、プロジェクトへのインストールでは`npx karia inspect src --token --surface`です。

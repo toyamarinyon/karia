@@ -4,12 +4,12 @@ import type { CompletionItem, Hover, Location, Range, Position, Diagnostic } fro
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { getCSSLanguageService } from 'vscode-css-languageservice';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import fs from 'node:fs/promises';
 import { watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
+import { binaryPath } from 'karia';
 import { moduleAccess } from './tsx.js';
 
 type Definition = { name: string; value: string; uri: string; start: number; end: number; context: string };
@@ -32,9 +32,7 @@ class RustClient {
   private stopped: Error | undefined;
   private pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void; timer: NodeJS.Timeout }>();
   constructor() {
-    const require = createRequire(import.meta.url);
-    const base = path.dirname(require.resolve('karia/package.json'));
-    this.child = spawn(path.join(base, 'target/release', process.platform === 'win32' ? 'karia.exe' : 'karia'), ['serve'], { stdio: ['pipe', 'pipe', 'pipe'] });
+    this.child = spawn(binaryPath, ['serve'], { stdio: ['pipe', 'pipe', 'pipe'] });
     createInterface({ input: this.child.stdout }).on('line', line => {
       try {
         const response = JSON.parse(line);
@@ -77,9 +75,10 @@ async function indexFile(uri: string) {
   }
 }
 async function update(uri: string, text: string) { snapshots.set(uri, text); await core.call('update', { uri, text }); }
+const ignoredDirectories = new Set(['node_modules', 'dist', 'target', '.git', '.turbo']);
 async function scanDirectory(dir: string) {
   for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    if (['node_modules', 'dist', 'target', '.git', '.turbo'].includes(entry.name)) continue;
+    if (ignoredDirectories.has(entry.name)) continue;
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) await scanDirectory(file);
     else if (entry.isFile() && entry.name.endsWith('.css')) await indexFile(pathToFileURL(file).href);
@@ -126,7 +125,7 @@ async function publishDiagnostics() {
     if (!isCss(doc.uri)) continue;
     const diagnostics: Diagnostic[] = service.doValidation(doc, service.parseStylesheet(doc));
     const extra = await core.call<CoreDiagnostic[]>('diagnostics', { uri: doc.uri });
-    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'css-lab' })));
+    diagnostics.push(...extra.map(d => ({ message: d.message, range: byteRange(doc.uri, d.start, d.end), severity: DiagnosticSeverity.Warning, code: d.code, source: 'karia' })));
     connection.sendDiagnostics({ uri: doc.uri, version: doc.version, diagnostics });
   }
 }
@@ -139,7 +138,7 @@ connection.onInitialize(params => serial(async () => {
     const root = fileURLToPath(uri);
     await scanDirectory(root);
     const watcher = watch(root, { recursive: true }, (_event, filename) => {
-      if (!filename || !filename.endsWith('.css') || filename.split(path.sep).some(part => ['node_modules', 'dist', 'target', '.git', '.turbo'].includes(part))) return;
+      if (!filename || !filename.endsWith('.css') || filename.split(path.sep).some(part => ignoredDirectories.has(part))) return;
       void serial(async () => { await indexFile(pathToFileURL(path.join(root, filename)).href); await publishDiagnostics(); });
     });
     watcher.on('error', error => connection.console.error(`Workspace watcher: ${error.message}`));

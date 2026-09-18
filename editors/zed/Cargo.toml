@@ -1,5 +1,5 @@
 [package]
-name = "css_lab_lsp_zed"
+name = "karia_lsp_zed"
 version = "0.0.1"
 edition = "2021"
 publish = false

@@ -1,6 +1,35 @@
-# Karia LSP for Zed (開発用)
+# Karia LSP for Zed
 
-このディレクトリは、`karia` ワークスペース内の Karia LSP を Zed から起動する最小の dev extension です。CSS、TSX、TypeScript、JavaScript に `css-lab` language server を登録します。文法（Tree-sitter grammar）は追加せず、Zed 標準の言語サポートをそのまま使います。
+`karia-lsp`（npm パッケージの CSS language server）を Zed から起動する拡張です。CSS、TSX、TypeScript、JavaScript に `karia` language server を登録します。文法（Tree-sitter grammar）は追加せず、Zed 標準の言語サポートをそのまま使います。
+
+## サーバーの解決順
+
+拡張は次の順で LSP を探します。
+
+1. `lsp.karia.binary` 設定（`path` と任意の `arguments`）。指定すればそのコマンドをそのまま使います。
+2. 開いている worktree の `node_modules/karia-lsp`。プロジェクトが lockfile で固定したバージョンを、LSP・`npx karia`・CI で共通にできます。
+3. 拡張専用の work dir へ `npm_install_package("karia-lsp")`。最新バージョンを Zed 同梱の Node でインストールします。
+
+`karia-lsp` は `karia` パッケージに依存し、LSP はその中のネイティブバイナリを `binaryPath` 経由で起動します（PATH は見ません）。node は `zed::node_binary_path()` → `which("node")` → `CSS_LAB_NODE` の順で解決します。
+
+## プロジェクトごとの起動指定
+
+settings.json または `.zed/settings.json` で上書きできます。
+
+```json
+{
+  "lsp": {
+    "karia": {
+      "binary": {
+        "path": "/path/to/node",
+        "arguments": ["/path/to/karia/packages/karia-lsp/dist/server.js", "--stdio"]
+      }
+    }
+  }
+}
+```
+
+開発中はこの設定でモノレポの `packages/karia-lsp/dist/server.js` を指すと、npm install 経路を使わずに済みます。
 
 ## インストール
 
@@ -8,7 +37,7 @@
 
    ```sh
    npm install
-   npm run build -- --filter=@css-lab/lsp...
+   npm run build -- --filter=karia-lsp...
    ```
 
 2. Zed で Command Palette (`cmd-shift-p`) を開き、`zed: install dev extension` を実行します。
@@ -32,10 +61,15 @@ Node の解決は、まず Zed worktree の環境にある `CSS_LAB_NODE`、次�
 {
   "languages": {
     "CSS": {
-      "language_servers": ["css-lab"]
+      "language_servers": ["karia"]
     }
   }
 }
 ```
 
-TypeScript 系の既存サーバーは維持してください。TSX / TypeScript / JavaScript でも CSS Lab を有効にする場合は、各言語の `language_servers` の先頭に `css-lab` を追加し、残りに `...` を指定します。
+TypeScript 系の既存サーバーは維持してください。TSX / TypeScript / JavaScript でも Karia を有効にする場合は、各言語の `language_servers` の先頭に `karia` を追加し、残りに `...` を指定します。
+
+## 既知の制限
+
+- `npm_install_package` / 設定経路は `cargo check --target wasm32-wasip2` でコンパイル確認済みですが、Zed 実機での動作確認は未実施です。
+- worktree の `node_modules` 判定は `node_modules/karia-lsp/package.json` の存在で行います。

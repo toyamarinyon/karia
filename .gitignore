@@ -27,6 +27,9 @@ dist-ssr
 **/target/
 editors/zed/extension.wasm
 
+# Platform binaries copied into the package by `npm run build` / release CI
+packages/karia/bin/karia-*
+
 # Machine-specific probe output (regenerated with npm run probe:css)
 apps/demo/probe-results.json
 *.tgz

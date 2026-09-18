@@ -3,10 +3,8 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const binary = join(dirname(require.resolve('karia/package.json')), 'target/release/karia');
+import { join } from 'node:path';
+import { binaryPath as binary } from 'karia';
 test('Rust CLI returns actionable JSON and nonzero on unknown variable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'css-cli-'));
   try {

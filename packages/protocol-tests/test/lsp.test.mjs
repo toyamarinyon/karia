@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 const require = createRequire(import.meta.url);
-const server = join(dirname(require.resolve('@css-lab/lsp/package.json')), 'dist/server.js');
+const server = join(dirname(require.resolve('karia-lsp/package.json')), 'dist/server.js');
 
 function client() {
   const proc = spawn(process.execPath, [server, '--stdio'], { stdio: ['pipe', 'pipe', 'pipe'] });
