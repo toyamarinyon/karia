@@ -1,6 +1,6 @@
 id = "karia"
 name = "Karia"
-version = "0.0.2"
+version = "0.0.3"
 schema_version = 1
 authors = ["Karia"]
 description = "Zed extension for the karia CSS language server."

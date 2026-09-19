@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import fs from 'node:fs/promises';
-import { watch, type FSWatcher } from 'node:fs';
+import { readFileSync, watch, type FSWatcher } from 'node:fs';
 import path from 'node:path';
 import ignore from 'ignore';
 import { binaryPath } from 'karia-css';
@@ -72,6 +72,7 @@ class RustClient {
   }
   close() { this.child.stdin.end(); this.child.kill(); }
 }
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const isCss = (uri: string) => uri.startsWith('file:') && fileURLToPath(uri).endsWith('.css');
 const isModuleSource = (uri: string) => uri.startsWith('file:') && /\.(?:ts|tsx|js|jsx)$/.test(fileURLToPath(uri));
 // Hard exclusions apply even when a .gitignore un-ignores them.
@@ -198,7 +199,7 @@ connection.onInitialize(params => serial(async () => {
     textDocumentSync: TextDocumentSyncKind.Incremental,
     completionProvider: { triggerCharacters: ['.', '-', '(', '"', "'"] },
     hoverProvider: true, definitionProvider: true,
-  }, serverInfo: { name: 'karia', version: '0.0.2' } };
+  }, serverInfo: { name: 'karia', version } };
 }));
 documents.onDidChangeContent(({ document: doc }) => {
   // Snapshot the event text before queuing: later edits may mutate document state.
