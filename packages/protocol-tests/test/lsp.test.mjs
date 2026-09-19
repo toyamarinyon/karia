@@ -172,3 +172,81 @@ test('real stdio LSP: .gitignore excludes files from scan and watch paths', { ti
   assert.ok(visible.some(x => x.label === '--ignored'), 'removing a gitignore rule must re-index the file');
   assert.ok(!visible.some(x => x.label === '--hidden'));
 });
+
+test('real stdio LSP: parser-backed CSS cursor contexts and unsaved changes', { timeout: 90000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'karia-context-'));
+  const uri = name => pathToFileURL(join(root, name)).href;
+  const tokens = String.raw`/* 🌿 */ :root { --accent: hotpink; --日本: teal; --🌿: green; --a\.b: cyan; }`;
+  await writeFile(join(root, 'tokens.css'), tokens);
+  const c = client();
+  t.after(async () => { await c.close(); await rm(root, { recursive: true, force: true }); });
+  await c.request('initialize', { processId: process.pid, rootUri: pathToFileURL(root).href, capabilities: {} });
+  c.notify('initialized', {});
+  let version = 1;
+  let text = '.a { color: var(--accent); }';
+  c.notify('textDocument/didOpen', { textDocument: { uri: uri('scratch.css'), languageId: 'css', version, text } });
+  const change = value => {
+    text = value;
+    c.notify('textDocument/didChange', { textDocument: { uri: uri('scratch.css'), version: ++version }, contentChanges: [{ text }] });
+  };
+  const query = (method, needle, delta) => c.request(`textDocument/${method}`, { textDocument: { uri: uri('scratch.css') }, position: pos(text, needle, delta) });
+  for (const source of [
+    '/* 🌿 */ @media (width > 1px) { .a { color: var(/* note */ --accent); } }',
+    '.a { color: var(--missing, var(--accent)); }',
+    String.raw`.a { color: v\61 r(--accent); }`,
+    '.a { color: VAR(--accent); }',
+  ]) {
+    change(source);
+    const item = items(await query('completion', '--accent', 4)).find(x => x.label === '--accent');
+    assert.ok(item, source);
+    assert.deepEqual(item.textEdit.range, { start: pos(text, '--accent'), end: pos(text, '--accent', 8) });
+    assert.match(JSON.stringify(await query('hover', '--accent', 4)), /hotpink/, source);
+    const defs = locations(await query('definition', '--accent', 4));
+    assert.ok(defs.some(d => (d.uri ?? d.targetUri) === uri('tokens.css')), source);
+    assert.deepEqual((defs[0].range ?? defs[0].targetSelectionRange).start, pos(tokens, '--accent'));
+  }
+  change(String.raw`/* 🌿 */ .a { color: var(--\61 ccent); }`);
+  const escapedItem = items(await query('completion', '--\\61 ccent', 8)).find(x => x.label === '--accent');
+  assert.ok(escapedItem);
+  assert.equal(escapedItem.textEdit.newText, '--accent');
+  assert.deepEqual(escapedItem.textEdit.range, { start: pos(text, '--\\61 ccent'), end: pos(text, '--\\61 ccent', 11) });
+  const escapedHover = await query('hover', '--\\61 ccent', 8);
+  assert.match(JSON.stringify(escapedHover), /hotpink/);
+  assert.deepEqual(escapedHover.range, { start: pos(text, '--\\61 ccent'), end: pos(text, '--\\61 ccent', 11) });
+  assert.ok(locations(await query('definition', '--\\61 ccent', 8)).some(d => (d.uri ?? d.targetUri) === uri('tokens.css')));
+
+  change('/* 🌿 */ .a { color: var(--日本); }');
+  const japanese = items(await query('completion', '--日本', 3)).find(x => x.label === '--日本');
+  assert.ok(japanese);
+  assert.deepEqual(japanese.textEdit.range, { start: pos(text, '--日本'), end: pos(text, '--日本', 4) });
+  assert.match(JSON.stringify(await query('hover', '--日本', 3)), /teal/);
+
+  change('/* 🌿 */ .a { color: var(--🌿); }');
+  const emoji = items(await query('completion', '--🌿', 4)).find(x => x.label === '--🌿');
+  assert.ok(emoji);
+  assert.deepEqual(emoji.textEdit.range, { start: pos(text, '--🌿'), end: pos(text, '--🌿', 4) });
+  change('.a { color: var(--); }');
+  const punctuation = items(await query('completion', '--', 2)).find(x => x.label === '--a.b');
+  assert.ok(punctuation);
+  change(`.a { color: var(${punctuation.textEdit.newText}); }`);
+  assert.match(JSON.stringify(await query('hover', punctuation.textEdit.newText, 2)), /cyan/);
+
+  for (const source of [
+    '.a { /* var(--accent) */ color: red; }',
+    '.a { content: "/* var(--accent) */"; }',
+    String.raw`.a { content: "escaped \" var(--accent)"; }`,
+    '.a { background: url(var(--accent)); }',
+  ]) {
+    change(source);
+    const completions = items(await query('completion', '--accent', 4));
+    assert.ok(!completions.some(x => x.label === '--accent' && x.detail === 'hotpink'), source);
+    assert.doesNotMatch(JSON.stringify(await query('hover', '--accent', 4)), /hotpink/, source);
+    assert.ok(!locations(await query('definition', '--accent', 4)).some(d => (d.uri ?? d.targetUri) === uri('tokens.css')), source);
+  }
+  change('.a { color: var(/* gap */');
+  assert.ok(items(await query('completion', '/* gap */', 9)).some(x => x.label === '--accent'));
+  change('.a { color: var( /* gap */ ');
+  assert.ok(items(await query('completion', '/* gap */ ', 10)).some(x => x.label === '--accent'));
+  change('.a { color: var(--accent); }');
+  assert.match(JSON.stringify(await query('hover', '--accent', 4)), /hotpink/, 'context must recover after unsaved comments and strings');
+});

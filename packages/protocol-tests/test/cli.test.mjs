@@ -54,3 +54,29 @@ test('Rust CLI respects .gitignore and hard directory exclusions', async () => {
     assert.ok(!remaining.some(d => d.message.includes('--secret')), 'un-ignored file must be indexed');
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('Rust worker CSS context follows update/remove and UTF-8 token ranges', () => {
+  const uri = 'file:///context.css';
+  const text = '/* 🌿 */ .a { color: var(--日本); }';
+  const start = Buffer.byteLength(text.slice(0, text.indexOf('--日本')));
+  const end = start + Buffer.byteLength('--日本');
+  const requests = [
+    { method: 'update', uri, text },
+    { method: 'css-context', uri, offset: start + 2 },
+    { method: 'update', uri, text: '/* var(--日本) */' },
+    { method: 'css-context', uri, offset: 9 },
+    { method: 'remove', uri },
+    { method: 'css-context', uri, offset: start + 2 },
+  ];
+  const run = spawnSync(binary, ['serve'], {
+    encoding: 'utf8', input: requests.map((request, id) => JSON.stringify({ id, ...request })).join('\n') + '\n',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const responses = run.stdout.trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(responses.length, requests.length);
+  assert.deepEqual(responses[1].result.variable, { name: '--日本', start, end });
+  assert.equal(responses[1].result.completion.prefix, '--');
+  assert.equal(responses[3].result.variable, null);
+  assert.equal(responses[3].result.completion, null);
+  assert.equal(responses[5].result, null);
+});

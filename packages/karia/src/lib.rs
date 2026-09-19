@@ -2,11 +2,14 @@ use cssparser::{Parser, ParserInput, Token};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
+pub mod context;
 pub mod tsx;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Definition {
     pub name: String,
+    #[serde(rename = "insertionText")]
+    pub insertion_text: String,
     pub value: String,
     pub uri: String,
     pub start: usize,
@@ -97,6 +100,9 @@ impl Index {
             })
             .unwrap_or_default()
     }
+    pub fn css_context(&self, uri: &str, offset: usize) -> Option<context::CssContext> {
+        context::context(self.check_text(uri)?, offset)
+    }
     pub fn check_text(&self, uri: &str) -> Option<&str> {
         self.docs.get(uri).map(|d| d.text.as_str())
     }
@@ -165,6 +171,11 @@ fn tokenize(parser: &mut Parser<'_, '_>) -> Vec<Node> {
     }
     out
 }
+fn css_identifier(name: &str) -> String {
+    let mut result = String::new();
+    cssparser::serialize_identifier(name, &mut result).expect("writing to String cannot fail");
+    result
+}
 fn declaration(nodes: &[Node]) -> bool {
     matches!(nodes.first().map(|n| &n.kind), Some(Kind::Ident(_)))
         && matches!(nodes.get(1).map(|n| &n.kind), Some(Kind::Colon))
@@ -198,6 +209,7 @@ fn analyze(
                     selector_classes(head, false, &mut found);
                     for (name, start, finish) in found {
                         doc.classes.push(Definition {
+                            insertion_text: css_identifier(&name),
                             name,
                             uri: uri.to_owned(),
                             start,
@@ -235,6 +247,7 @@ fn add_declaration(
     if name.starts_with("--") {
         doc.variables.push(Definition {
             name: name.clone(),
+            insertion_text: css_identifier(name),
             uri: uri.to_owned(),
             start: nodes[0].start,
             end: nodes[0].end,
