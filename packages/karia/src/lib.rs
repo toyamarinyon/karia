@@ -2,11 +2,14 @@ use cssparser::{Parser, ParserInput, Token};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashSet};
 
+pub mod context;
 pub mod tsx;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Definition {
     pub name: String,
+    #[serde(rename = "insertionText")]
+    pub insertion_text: String,
     pub value: String,
     pub uri: String,
     pub start: usize,
@@ -123,6 +126,12 @@ impl Index {
             })
             .unwrap_or_default()
     }
+    pub fn css_context(&self, uri: &str, offset: usize) -> Option<context::CssContext> {
+        match self.docs.get(uri)? {
+            Document::Css(doc) => context::context(&doc.text, offset),
+            Document::Script(_) => None,
+        }
+    }
     /// Resolve a stored script at a UTF-16 cursor offset. Returned ranges use UTF-8 bytes.
     pub fn module_access(&self, uri: &str, offset: usize) -> Option<tsx::ModuleAccess> {
         match self.docs.get(uri)? {
@@ -201,6 +210,11 @@ fn tokenize(parser: &mut Parser<'_, '_>) -> Vec<Node> {
     }
     out
 }
+fn css_identifier(name: &str) -> String {
+    let mut result = String::new();
+    cssparser::serialize_identifier(name, &mut result).expect("writing to String cannot fail");
+    result
+}
 fn declaration(nodes: &[Node]) -> bool {
     matches!(nodes.first().map(|n| &n.kind), Some(Kind::Ident(_)))
         && matches!(nodes.get(1).map(|n| &n.kind), Some(Kind::Colon))
@@ -234,6 +248,7 @@ fn analyze(
                     selector_classes(head, false, &mut found);
                     for (name, start, finish) in found {
                         doc.classes.push(Definition {
+                            insertion_text: css_identifier(&name),
                             name,
                             uri: uri.to_owned(),
                             start,
@@ -271,6 +286,7 @@ fn add_declaration(
     if name.starts_with("--") {
         doc.variables.push(Definition {
             name: name.clone(),
+            insertion_text: css_identifier(name),
             uri: uri.to_owned(),
             start: nodes[0].start,
             end: nodes[0].end,

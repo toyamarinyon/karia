@@ -165,6 +165,13 @@ fn serve() {
                     result: idx.diagnostics(&req.uri),
                 },
             ),
+            "css-context" => write_json(
+                &mut out,
+                Response {
+                    id: req.id,
+                    result: idx.css_context(&req.uri, req.offset),
+                },
+            ),
             "module-access" => write_json(
                 &mut out,
                 Response {

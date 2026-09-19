@@ -66,6 +66,12 @@ Unlike `npm run`, pnpm passes arguments to scripts without `--`. Agents that wan
 
 The CLI and the LSP share the same Rust index and variable diagnostics. The LSP publishes only `unknown-custom-property`; standard CSS lint is intentionally out of scope and can be covered by running a linter such as Stylelint alongside this server.
 
+## Worker cursor context
+
+After an `update` request, the NDJSON worker accepts `{"id":2,"method":"css-context","uri":"file:///app.css","offset":42}`. Offsets and returned `start`/`end` ranges use UTF-8 bytes. The result contains `token` (kind and source range), `variable` (decoded custom-property name and source range), and `completion` (decoded first-argument prefix and replacement range); each field can be `null`. Unknown documents and invalid byte positions return `null`. Queries use the latest indexed text, including unsaved updates.
+
+Completion candidates retain their decoded `name` for display and provide CSS-escaped `insertionText` for insertion. Context detection handles token syntax rather than validating the full stylesheet; an unfinished hexadecimal escape can produce a different prefix until the escape is complete. Standard CSS assistance remains with `vscode-css-languageservice`.
+
 ## Verification
 
 In local verification we installed the Zed development extension and confirmed on screen that hovering `--surface` shows `#ffffff` and `tokens.css`, and hovering `styles.page` in TSX shows the CSS declaration. In TSX the TypeScript type hover is shown alongside it.
@@ -95,7 +101,7 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 - In JS/JSX/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
 - Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
 - Published diagnostics are limited to `unknown-custom-property`. Standard CSS lint (syntax errors, duplicate declarations, etc.) is delegated to linters such as Stylelint.
-- Identifier detection at the CSS cursor position targets ordinary names; hover/completion for references containing CSS escapes has limitations.
+- CSS custom-property cursor context is tokenized in Rust, including escaped identifiers and incomplete `var()` calls. The LSP converts UTF-16 cursor positions to UTF-8 for the worker and converts source ranges back; completion replaces the entire source identifier, including escapes. This token-level context does not resolve the CSS cascade.
 - The Rust index re-parses changed CSS. The LSP is an initial implementation that serializes requests to guarantee ordering; performance for large projects has not been optimized yet.
 
 ## Sources

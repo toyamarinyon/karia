@@ -12,7 +12,8 @@ import path from 'node:path';
 import ignore from 'ignore';
 import { binaryPath } from 'karia-css';
 
-type Definition = { name: string; value: string; uri: string; start: number; end: number; context: string };
+type Definition = { name: string; insertionText: string; value: string; uri: string; start: number; end: number; context: string };
+type CssContext = { variable: { name: string; start: number; end: number } | null; completion: { prefix: string; start: number; end: number } | null };
 type ModuleAccess = { specifier: string; name: string; start: number; end: number };
 type CoreDiagnostic = { uri: string; message: string; start: number; end: number; code: string };
 const connection = createConnection(ProposedFeatures.all);
@@ -150,25 +151,11 @@ function location(definition: Definition): Location { return { uri: definition.u
 function markdown(found: Definition[]): string {
   return found.map(d => `\`\`\`css\n${d.name.startsWith('--') ? `${d.name}: ${d.value};` : `.${d.name} {\n${d.value}\n}`}\n\`\`\`\n\nContext: ${d.context}\n\n[${path.basename(fileURLToPath(d.uri))}](${d.uri})`).join('\n\n---\n\n');
 }
-// This is cursor-context detection only; CSS symbols/values are parsed in Rust.
-function inCommentOrString(text: string, offset: number): boolean {
-  let quote = '', comment = false;
-  for (let i = 0; i < offset; i++) {
-    if (comment) { if (text[i] === '*' && text[i + 1] === '/') { comment = false; i++; } continue; }
-    if (quote) { if (text[i] === '\\') i++; else if (text[i] === quote) quote = ''; continue; }
-    if (text[i] === '/' && text[i + 1] === '*') { comment = true; i++; }
-    else if (text[i] === '"' || text[i] === "'") quote = text[i];
-  }
-  return comment || !!quote;
-}
-function variableAt(text: string, offset: number) {
-  if (inCommentOrString(text, offset)) return undefined;
-  let start = offset, end = offset;
-  const word = /[\p{L}\p{N}_-]/u;
-  while (start > 0 && word.test(text[start - 1])) start--;
-  while (end < text.length && word.test(text[end])) end++;
-  const name = text.slice(start, end);
-  return name.startsWith('--') ? { name, start, end } : undefined;
+function cssContext(doc: TextDocument, offset: number) {
+  // LSP document offsets are UTF-16; the indexed Rust source uses UTF-8 bytes.
+  return core.call<CssContext | null>('css-context', {
+    uri: doc.uri, offset: Buffer.byteLength(doc.getText().slice(0, offset), 'utf8'),
+  });
 }
 async function moduleDefinitions(uri: string, specifier: string) {
   const target = pathToFileURL(path.resolve(path.dirname(fileURLToPath(uri)), specifier)).href;
@@ -240,18 +227,17 @@ connection.onDidChangeWatchedFiles(params => {
 });
 connection.onCompletion(params => serialDocument(params.textDocument.uri, async (doc): Promise<CompletionItem[] | null> => {
   if (!doc) return null;
-  const text = doc.getText(), offset = doc.offsetAt(params.position);
+  const offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
-    const before = text.slice(0, offset);
-    const match = /var\(\s*(--[\p{L}\p{N}_-]*)?$/u.exec(before);
-    if (match && !inCommentOrString(text, offset)) {
-      const prefix = match[1] ?? '';
+    const completion = (await cssContext(doc, offset))?.completion;
+    if (completion) {
+      const { prefix } = completion;
       const found = await core.call<Definition[]>('variables');
       const groups = new Map<string, Definition[]>();
       for (const d of found) if (d.name.startsWith(prefix)) groups.set(d.name, [...(groups.get(d.name) ?? []), d]);
       return [...groups].map(([name, defs]) => ({ label: name, kind: CompletionItemKind.Variable,
         detail: defs.map(d => d.value).join(' | '), documentation: { kind: MarkupKind.Markdown, value: markdown(defs) },
-        textEdit: { range: { start: doc.positionAt(offset - prefix.length), end: doc.positionAt(variableAt(text, offset)?.end ?? offset) }, newText: name } }));
+        textEdit: { range: byteRange(doc.uri, completion.start, completion.end), newText: defs[0].insertionText } }));
     }
     return service.doComplete(doc, params.position, service.parseStylesheet(doc)).items;
   }
@@ -266,12 +252,12 @@ connection.onCompletion(params => serialDocument(params.textDocument.uri, async 
 }));
 connection.onHover(params => serialDocument(params.textDocument.uri, async (doc): Promise<Hover | null> => {
   if (!doc) return null;
-  const text = doc.getText(), offset = doc.offsetAt(params.position);
+  const offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
-    const token = variableAt(text, offset);
+    const token = (await cssContext(doc, offset))?.variable;
     if (token) {
       const found = await core.call<Definition[]>('inspect', { name: token.name });
-      return found.length ? { contents: { kind: MarkupKind.Markdown, value: markdown(found) }, range: { start: doc.positionAt(token.start), end: doc.positionAt(token.end) } } : null;
+      return found.length ? { contents: { kind: MarkupKind.Markdown, value: markdown(found) }, range: byteRange(doc.uri, token.start, token.end) } : null;
     }
     return service.doHover(doc, params.position, service.parseStylesheet(doc));
   }
@@ -283,9 +269,9 @@ connection.onHover(params => serialDocument(params.textDocument.uri, async (doc)
 }));
 connection.onDefinition(params => serialDocument(params.textDocument.uri, async (doc): Promise<Location[] | Location | null> => {
   if (!doc) return null;
-  const text = doc.getText(), offset = doc.offsetAt(params.position);
+  const offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
-    const token = variableAt(text, offset);
+    const token = (await cssContext(doc, offset))?.variable;
     if (token) return (await core.call<Definition[]>('inspect', { name: token.name })).map(location);
     return service.findDefinition(doc, params.position, service.parseStylesheet(doc));
   }
