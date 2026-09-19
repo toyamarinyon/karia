@@ -27,6 +27,13 @@ function serial<T>(work: () => Promise<T>): Promise<T> {
   queue = result.catch(error => connection.console.error(String(error)));
   return result;
 }
+function serialDocument<T>(uri: string, work: (doc: TextDocument | undefined) => Promise<T>): Promise<T> {
+  const current = documents.get(uri);
+  // TextDocuments mutates immediately; freeze the request's version before
+  // queuing it so its offsets match the worker updates ahead of it.
+  const snapshot = current && TextDocument.create(uri, current.languageId, current.version, current.getText());
+  return serial(() => work(snapshot));
+}
 class RustClient {
   private child;
   private sequence = 0;
@@ -65,6 +72,7 @@ class RustClient {
   close() { this.child.stdin.end(); this.child.kill(); }
 }
 const isCss = (uri: string) => uri.startsWith('file:') && fileURLToPath(uri).endsWith('.css');
+const isModuleSource = (uri: string) => uri.startsWith('file:') && /\.(?:ts|tsx|js|jsx)$/.test(fileURLToPath(uri));
 // Hard exclusions apply even when a .gitignore un-ignores them.
 const ignoredDirectories = new Set(['node_modules', 'dist', 'target', '.git', '.turbo']);
 const workspaceRoots: string[] = [];
@@ -131,7 +139,9 @@ async function scanDirectory(dir: string) {
 }
 function document(uri: string) { return documents.get(uri) ?? TextDocument.create(uri, 'css', 0, snapshots.get(uri) ?? ''); }
 function bytePosition(uri: string, byte: number): Position {
-  const doc = document(uri);
+  return documentBytePosition(document(uri), byte);
+}
+function documentBytePosition(doc: TextDocument, byte: number): Position {
   const offset = Buffer.from(doc.getText()).subarray(0, byte).toString('utf8').length;
   return doc.positionAt(offset);
 }
@@ -206,11 +216,15 @@ connection.onInitialize(params => serial(async () => {
 documents.onDidChangeContent(({ document: doc }) => {
   // Snapshot the event text before queuing: later edits may mutate document state.
   const text = doc.getText();
-  void serial(async () => { if (isCss(doc.uri)) { await update(doc.uri, text); await publishDiagnostics(); } });
+  void serial(async () => {
+    if (isCss(doc.uri)) { await update(doc.uri, text); await publishDiagnostics(); }
+    else if (isModuleSource(doc.uri)) await core.call('update', { uri: doc.uri, text });
+  });
 });
 documents.onDidClose(({ document: doc }) => {
   void serial(async () => {
     if (isCss(doc.uri)) { await indexFile(doc.uri); await publishDiagnostics(); }
+    else if (isModuleSource(doc.uri)) await core.call('remove', { uri: doc.uri });
     connection.sendDiagnostics({ uri: doc.uri, diagnostics: [] });
   });
 });
@@ -224,8 +238,8 @@ connection.onDidChangeWatchedFiles(params => {
     await publishDiagnostics();
   });
 });
-connection.onCompletion(params => serial(async (): Promise<CompletionItem[] | null> => {
-  const doc = documents.get(params.textDocument.uri); if (!doc) return null;
+connection.onCompletion(params => serialDocument(params.textDocument.uri, async (doc): Promise<CompletionItem[] | null> => {
+  if (!doc) return null;
   const text = doc.getText(), offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
     const before = text.slice(0, offset);
@@ -241,16 +255,17 @@ connection.onCompletion(params => serial(async (): Promise<CompletionItem[] | nu
     }
     return service.doComplete(doc, params.position, service.parseStylesheet(doc)).items;
   }
-  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!isModuleSource(doc.uri)) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { uri: doc.uri, offset });
   if (!access) return null;
   const found = await moduleDefinitions(doc.uri, access.specifier);
   return [...new Map(found.map(d => [d.name, d])).values()].map(d => ({ label: d.name, kind: CompletionItemKind.Field,
     documentation: { kind: MarkupKind.Markdown, value: markdown([d]) },
-    // The worker reports UTF-8 byte offsets; bytePosition converts to LSP positions.
-    textEdit: { range: { start: bytePosition(doc.uri, access.start), end: bytePosition(doc.uri, access.end) }, newText: d.name } }));
+    // Convert worker byte offsets using the same snapshot as the request.
+    textEdit: { range: { start: documentBytePosition(doc, access.start), end: documentBytePosition(doc, access.end) }, newText: d.name } }));
 }));
-connection.onHover(params => serial(async (): Promise<Hover | null> => {
-  const doc = documents.get(params.textDocument.uri); if (!doc) return null;
+connection.onHover(params => serialDocument(params.textDocument.uri, async (doc): Promise<Hover | null> => {
+  if (!doc) return null;
   const text = doc.getText(), offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
     const token = variableAt(text, offset);
@@ -260,20 +275,22 @@ connection.onHover(params => serial(async (): Promise<Hover | null> => {
     }
     return service.doHover(doc, params.position, service.parseStylesheet(doc));
   }
-  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!isModuleSource(doc.uri)) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { uri: doc.uri, offset });
   if (!access) return null;
   const found = (await moduleDefinitions(doc.uri, access.specifier)).filter(d => d.name === access.name);
   return found.length ? { contents: { kind: MarkupKind.Markdown, value: markdown(found) } } : null;
 }));
-connection.onDefinition(params => serial(async (): Promise<Location[] | Location | null> => {
-  const doc = documents.get(params.textDocument.uri); if (!doc) return null;
+connection.onDefinition(params => serialDocument(params.textDocument.uri, async (doc): Promise<Location[] | Location | null> => {
+  if (!doc) return null;
   const text = doc.getText(), offset = doc.offsetAt(params.position);
   if (isCss(doc.uri)) {
     const token = variableAt(text, offset);
     if (token) return (await core.call<Definition[]>('inspect', { name: token.name })).map(location);
     return service.findDefinition(doc, params.position, service.parseStylesheet(doc));
   }
-  const access = await core.call<ModuleAccess | null>('module-access', { text, offset });
+  if (!isModuleSource(doc.uri)) return null;
+  const access = await core.call<ModuleAccess | null>('module-access', { uri: doc.uri, offset });
   if (!access) return null;
   return (await moduleDefinitions(doc.uri, access.specifier)).filter(d => d.name === access.name).map(location);
 }));

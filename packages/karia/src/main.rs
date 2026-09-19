@@ -169,7 +169,7 @@ fn serve() {
                 &mut out,
                 Response {
                     id: req.id,
-                    result: karia::tsx::module_access(&req.text, req.offset),
+                    result: idx.module_access(&req.uri, req.offset),
                 },
             ),
             _ => write_json(
