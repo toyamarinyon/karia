@@ -4,7 +4,7 @@
  * Copies the compiled Rust binary into bin/ with its platform-specific name.
  */
 
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { binaryName, binaryPath } from "../index.js";
@@ -32,5 +32,8 @@ if (!name) {
 }
 
 mkdirSync(dirname(binaryPath), { recursive: true });
+// Remove before copying: overwriting in place keeps the old inode's
+// com.apple.provenance xattr, and macOS kills the mismatched binary.
+rmSync(binaryPath, { force: true });
 copyFileSync(sourcePath, binaryPath);
 console.log(`Copied native binary to ${binaryPath}`);
