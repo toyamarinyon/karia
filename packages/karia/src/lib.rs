@@ -28,8 +28,20 @@ pub struct Diagnostic {
 pub struct Index {
     docs: BTreeMap<String, Document>,
 }
+enum Document {
+    Css(CssDocument),
+    Script(String),
+}
+impl Document {
+    fn css(&self) -> Option<&CssDocument> {
+        match self {
+            Self::Css(doc) => Some(doc),
+            Self::Script(_) => None,
+        }
+    }
+}
 #[derive(Default)]
-struct Document {
+struct CssDocument {
     text: String,
     variables: Vec<Definition>,
     classes: Vec<Definition>,
@@ -46,15 +58,25 @@ impl Index {
         Self::default()
     }
     pub fn update(&mut self, uri: &str, text: &str) {
+        if matches!(
+            std::path::Path::new(uri)
+                .extension()
+                .and_then(|ext| ext.to_str()),
+            Some("ts" | "tsx" | "js" | "jsx")
+        ) {
+            self.docs
+                .insert(uri.to_owned(), Document::Script(text.to_owned()));
+            return;
+        }
         let mut input = ParserInput::new(text);
         let mut parser = Parser::new(&mut input);
         let nodes = tokenize(&mut parser);
-        let mut doc = Document {
+        let mut doc = CssDocument {
             text: text.to_owned(),
-            ..Document::default()
+            ..CssDocument::default()
         };
         analyze(&nodes, text.len(), uri, text, &[], &mut doc);
-        self.docs.insert(uri.to_owned(), doc);
+        self.docs.insert(uri.to_owned(), Document::Css(doc));
     }
     pub fn remove(&mut self, uri: &str) {
         self.docs.remove(uri);
@@ -62,12 +84,14 @@ impl Index {
     pub fn variables(&self) -> Vec<Definition> {
         self.docs
             .values()
+            .filter_map(Document::css)
             .flat_map(|d| d.variables.iter().cloned())
             .collect()
     }
     pub fn classes(&self, uri: &str) -> Vec<Definition> {
         self.docs
             .get(uri)
+            .and_then(Document::css)
             .map(|d| d.classes.clone())
             .unwrap_or_default()
     }
@@ -81,10 +105,12 @@ impl Index {
         let known: HashSet<_> = self
             .docs
             .values()
+            .filter_map(Document::css)
             .flat_map(|d| d.variables.iter().map(|v| v.name.as_str()))
             .collect();
         self.docs
             .get(uri)
+            .and_then(Document::css)
             .map(|d| {
                 d.uses
                     .iter()
@@ -101,10 +127,23 @@ impl Index {
             .unwrap_or_default()
     }
     pub fn css_context(&self, uri: &str, offset: usize) -> Option<context::CssContext> {
-        context::context(self.check_text(uri)?, offset)
+        match self.docs.get(uri)? {
+            Document::Css(doc) => context::context(&doc.text, offset),
+            Document::Script(_) => None,
+        }
+    }
+    /// Resolve a stored script at a UTF-16 cursor offset. Returned ranges use UTF-8 bytes.
+    pub fn module_access(&self, uri: &str, offset: usize) -> Option<tsx::ModuleAccess> {
+        match self.docs.get(uri)? {
+            Document::Script(text) => tsx::module_access(text, offset),
+            Document::Css(_) => None,
+        }
     }
     pub fn check_text(&self, uri: &str) -> Option<&str> {
-        self.docs.get(uri).map(|d| d.text.as_str())
+        self.docs.get(uri).map(|d| match d {
+            Document::Css(doc) => doc.text.as_str(),
+            Document::Script(text) => text.as_str(),
+        })
     }
 }
 
@@ -186,7 +225,7 @@ fn analyze(
     uri: &str,
     text: &str,
     contexts: &[String],
-    doc: &mut Document,
+    doc: &mut CssDocument,
 ) {
     let mut from = 0;
     for (i, node) in nodes.iter().enumerate() {
@@ -236,7 +275,7 @@ fn add_declaration(
     uri: &str,
     text: &str,
     contexts: &[String],
-    doc: &mut Document,
+    doc: &mut CssDocument,
 ) {
     if !declaration(nodes) {
         return;
@@ -313,6 +352,38 @@ fn selector_classes(nodes: &[Node], initial_global: bool, out: &mut Vec<(String,
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn script_documents_are_not_css_and_resolve_only_stored_source() {
+        let mut idx = Index::new();
+        idx.update("theme.css", ".card { --theme: red; color: var(--missing) }");
+        for extension in ["ts", "tsx", "js", "jsx"] {
+            let uri = format!("file:///app.{extension}");
+            idx.update(&uri, ".fake { --missing: blue; color: var(--other) }");
+            assert!(idx.classes(&uri).is_empty());
+            assert!(idx.diagnostics(&uri).is_empty());
+            assert!(idx.inspect("--missing").is_empty());
+            assert_eq!(idx.diagnostics("theme.css").len(), 1);
+
+            let text = "/* 🌿 */ import styles from './a.module.css'; styles.card;";
+            let offset = text[..text.find("card").unwrap() + 2]
+                .encode_utf16()
+                .count();
+            idx.update(&uri, text);
+            let access = idx.module_access(&uri, offset).unwrap();
+            assert_eq!(access.name, "card");
+            assert_eq!(&text[access.start..access.end], "card");
+            idx.update(&uri, &text.replace("card", "hero"));
+            assert_eq!(idx.module_access(&uri, offset).unwrap().name, "hero");
+            idx.remove(&uri);
+            assert!(idx.module_access(&uri, offset).is_none());
+            assert!(idx.check_text(&uri).is_none());
+        }
+        assert_eq!(idx.classes("theme.css")[0].name, "card");
+        assert_eq!(idx.variables().len(), 1);
+        assert!(idx.module_access("theme.css", 0).is_none());
+        idx.remove("theme.css");
+        assert!(idx.variables().is_empty());
+    }
     #[test]
     fn unicode_replacement_and_semicolonless_declarations() {
         let mut idx = Index::new();

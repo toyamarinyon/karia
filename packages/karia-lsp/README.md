@@ -5,7 +5,10 @@ CSS language server for CSS Modules and CSS custom properties, backed by the
 
 It combines Microsoft's `vscode-css-languageservice` (standard CSS completion,
 hover, diagnostics) with a Rust index of workspace variables and class names,
-and uses Babel to map CSS Module imports in JS/TS/TSX.
+and uses the Rust worker’s oxc parser to map CSS Module imports in JS/JSX/TS/TSX.
+The worker keeps open source text by URI, including unsaved changes, and removes
+it on close. Module-access queries use the URI and a UTF-16 cursor offset;
+workspace-wide source scanning is not implemented.
 
 ## Install
 

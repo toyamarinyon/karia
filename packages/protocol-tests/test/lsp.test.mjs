@@ -250,3 +250,52 @@ test('real stdio LSP: parser-backed CSS cursor contexts and unsaved changes', { 
   change('.a { color: var(--accent); }');
   assert.match(JSON.stringify(await query('hover', '--accent', 4)), /hotpink/, 'context must recover after unsaved comments and strings');
 });
+
+test('real stdio LSP: source URI lifecycle uses unsaved imports and UTF-16 positions', { timeout: 90000 }, async t => {
+  const root = await mkdtemp(join(tmpdir(), 'karia-sources-'));
+  const uri = name => pathToFileURL(join(root, name)).href;
+  await writeFile(join(root, 'First.module.css'), '.first { color: red; }');
+  await writeFile(join(root, 'Second.module.css'), '.second { color: blue; }');
+  const c = client();
+  t.after(async () => { await c.close(); await rm(root, { recursive: true, force: true }); });
+  await c.request('initialize', { processId: process.pid, rootUri: pathToFileURL(root).href, capabilities: {} });
+  c.notify('initialized', {});
+  for (const [extension, languageId] of [['ts', 'typescript'], ['tsx', 'typescriptreact'], ['js', 'javascript'], ['jsx', 'javascriptreact']]) {
+    const name = `App.${extension}`;
+    const first = '/* 🌿 */ import styles from "./First.module.css"; styles.first';
+    const second = '/* 🌿 */ import styles from "./Second.module.css"; styles.second';
+    const open = text => c.notify('textDocument/didOpen', { textDocument: { uri: uri(name), languageId, version: 1, text } });
+    const query = (method, text) => c.request(`textDocument/${method}`, { textDocument: { uri: uri(name) }, position: pos(text, 'styles.', 8) });
+    open(first);
+    assert.match(JSON.stringify(await query('hover', first)), /red/);
+    // Two queued edits before a query must leave the worker on the latest unsaved import.
+    c.notify('textDocument/didChange', { textDocument: { uri: uri(name), version: 2 }, contentChanges: [{ text: '' }] });
+    c.notify('textDocument/didChange', { textDocument: { uri: uri(name), version: 3 }, contentChanges: [{ text: second }] });
+    const completion = items(await query('completion', second));
+    assert.deepEqual(completion.map(item => item.label), ['second']);
+    assert.deepEqual(completion[0].textEdit.range, { start: pos(second, 'styles.', 7), end: pos(second, 'styles.', 13) });
+    assert.match(JSON.stringify(await query('hover', second)), /blue/);
+    const defs = locations(await query('definition', second));
+    assert.equal(defs.length, 1);
+    assert.equal(defs[0].uri ?? defs[0].targetUri, uri('Second.module.css'));
+    // Queue requests between two updates without awaiting responses. Later edits
+    // must not change the source version used for the earlier request's offsets.
+    c.notify('textDocument/didChange', { textDocument: { uri: uri(name), version: 4 }, contentChanges: [{ text: first }] });
+    const queuedCompletion = query('completion', first);
+    const queuedHover = query('hover', first);
+    const queuedDefinition = query('definition', first);
+    c.notify('textDocument/didChange', { textDocument: { uri: uri(name), version: 5 }, contentChanges: [{ text: '\n\n' + second }] });
+    const earlierItems = items(await queuedCompletion);
+    assert.deepEqual(earlierItems.map(item => item.label), ['first']);
+    assert.deepEqual(earlierItems[0].textEdit.range, { start: pos(first, 'styles.', 7), end: pos(first, 'styles.', 12) });
+    assert.match(JSON.stringify(await queuedHover), /red/);
+    const earlierDefs = locations(await queuedDefinition);
+    assert.equal(earlierDefs[0].uri ?? earlierDefs[0].targetUri, uri('First.module.css'));
+    assert.match(JSON.stringify(await query('hover', '\n\n' + second)), /blue/);
+    c.notify('textDocument/didClose', { textDocument: { uri: uri(name) } });
+    assert.equal(await query('hover', second), null);
+    open(first);
+    assert.match(JSON.stringify(await query('hover', first)), /red/);
+    c.notify('textDocument/didClose', { textDocument: { uri: uri(name) } });
+  }
+});

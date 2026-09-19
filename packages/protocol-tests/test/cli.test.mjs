@@ -5,6 +5,50 @@ import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { binaryPath as binary } from 'karia-css';
+
+test('NDJSON worker stores source documents by URI and removes closed sources', () => {
+  const requests = [], expected = [];
+  const call = (method, params, check) => {
+    requests.push({ id: requests.length + 1, method, ...params });
+    expected.push(check);
+  };
+  const cssUri = 'file:///App.module.css';
+  call('update', { uri: cssUri, text: '.card { color: red; }' });
+  for (const extension of ['ts', 'tsx', 'js', 'jsx']) {
+    const uri = `file:///App.${extension}`;
+    const text = '/* 🌿 */ import styles from "./App.module.css"; styles.card';
+    const offset = text.length;
+    call('module-access', { uri, offset }, result => assert.equal(result, null));
+    call('update', { uri, text });
+    call('module-access', { uri, offset }, result => {
+      assert.equal(result.name, 'card');
+      assert.equal(result.specifier, './App.module.css');
+      assert.equal(result.start, Buffer.byteLength(text.slice(0, -4)));
+      assert.equal(result.end, Buffer.byteLength(text));
+    });
+    const edited = text.replace('styles.card', 'styles.button');
+    call('update', { uri, text: edited });
+    call('module-access', { uri, offset: edited.length }, result => assert.equal(result.name, 'button'));
+    call('classes', { uri }, result => assert.deepEqual(result, []));
+    call('remove', { uri });
+    call('module-access', { uri, offset }, result => assert.equal(result, null));
+    call('update', { uri, text });
+    call('module-access', { uri, offset }, result => assert.equal(result.name, 'card'));
+  }
+  call('classes', { uri: cssUri }, result => assert.ok(result.some(item => item.name === 'card')));
+  call('module-access', { uri: cssUri, offset: 0 }, result => assert.equal(result, null));
+  const run = spawnSync(binary, ['serve'], {
+    input: requests.map(request => JSON.stringify(request)).join('\n') + '\n', encoding: 'utf8',
+  });
+  assert.equal(run.status, 0, run.stderr);
+  const responses = run.stdout.trim().split('\n').map(line => JSON.parse(line));
+  assert.equal(responses.length, requests.length);
+  responses.forEach((response, i) => {
+    assert.equal(response.id, requests[i].id);
+    assert.equal(response.error, undefined);
+    expected[i]?.(response.result);
+  });
+});
 test('Rust CLI returns actionable JSON and nonzero on unknown variable', async () => {
   const root = await mkdtemp(join(tmpdir(), 'css-cli-'));
   try {

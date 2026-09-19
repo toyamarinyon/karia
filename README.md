@@ -6,8 +6,8 @@ A monorepo experimenting with a setup where editors and agents share the same CS
 Zed / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
        ├─ vscode-css-languageservice: standard CSS completion and hover
-       ├─ Babel: mapping imports and variable scopes in JS/TS/TSX
        └─ NDJSON worker → packages/karia (Rust / cssparser)
+                              ├─ oxc: mapping imports and variable scopes in JS/JSX/TS/TSX
                               ├─ index of variables, classes, and definition sites
                               └─ karia CLI → Agent / CI
 ```
@@ -85,7 +85,7 @@ pnpm run probe:css
 ```
 
 - Rust unit tests: Unicode positions, replacement equivalent to unsaved updates, exclusion of comments/strings/`:global`, nesting, escaped identifiers, variable fallbacks.
-- Babel unit tests: import mapping, same-named local variables, mid-typing input, string/comment exclusion.
+- Rust module-access unit tests: import mapping, same-named local variables, mid-typing input, string/comment exclusion.
 - Inter-process tests: launch the real Rust CLI and stdio LSP to verify completion, hover, definition, edit/close, and file add/delete.
 - `probe:css`: preserves the original experiment against the Microsoft library alone.
 
@@ -97,7 +97,8 @@ Turborepo's actual work lives in each package, with the LSP→Rust dependency de
 - Indexing skips `node_modules`, `dist`, `target`, `.git`, `.turbo`, and paths excluded by `.gitignore`. The CLI also honors parent-directory `.gitignore` and `.git/info/exclude`; the LSP only reads `.gitignore` files inside the workspace. Open documents stay indexed even when ignored.
 - Hover lists each declaration's value and conditions. Recursive resolution of variable aliases, color swatches, doc comments, rename, and find-references are not implemented.
 - CSS Modules covers regular local classes plus `:global`/`:local`. `composes`, ICSS exports, Vite's `localsConvention`, and exact parity with Sass/Less/PostCSS transforms are unsupported.
-- In JS/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
+- The worker stores open JS/JSX/TS/TSX documents by URI. Open and unsaved changes send `update {uri, text}`; `module-access {uri, offset}` queries the stored text using a UTF-16 cursor offset and returns UTF-8 byte spans. Closing removes the source without reading it from disk. Workspace-wide source scanning is not implemented, and module-access still parses the stored text per query.
+- In JS/JSX/TS/TSX, only default CSS Module imports via relative paths and direct property access are covered. Path aliases, re-exports, destructuring, and dynamic keys are unsupported.
 - Diagnostics for unknown classes in TSX and `.d.ts` generation for `tsc` are not yet available. The CLI inspects CSS variables.
 - Published diagnostics are limited to `unknown-custom-property`. Standard CSS lint (syntax errors, duplicate declarations, etc.) is delegated to linters such as Stylelint.
 - CSS custom-property cursor context is tokenized in Rust, including escaped identifiers and incomplete `var()` calls. The LSP converts UTF-16 cursor positions to UTF-8 for the worker and converts source ranges back; completion replaces the entire source identifier, including escapes. This token-level context does not resolve the CSS cascade.
