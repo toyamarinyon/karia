@@ -1,6 +1,8 @@
-# Karia for Zed
+# Karia Language Server for Zed
 
 A Zed extension that launches `karia-lsp` (the CSS language server from the npm package). It registers the `karia` language server for CSS, TSX, TypeScript, and JavaScript. It does not add a grammar (Tree-sitter grammar); Zed's built-in language support is used as-is.
+
+The extension ID is `karia-language-server`, following Zed's [language server extension publishing requirements](https://zed.dev/docs/extensions/publishing/prerequisites#language-server-extensions). The language server ID remains `karia`, so settings continue to use `lsp.karia` and `"karia"` in `language_servers`.
 
 ## Server resolution order
 
@@ -51,7 +53,7 @@ rustup target add wasm32-wasip2
 cargo check --target wasm32-wasip2
 ```
 
-Node resolution first uses `CSS_LAB_NODE` from the Zed worktree environment, then `node` on PATH. `CSS_LAB_NODE` can be an absolute path to the executable.
+Node resolution first uses Zed's bundled Node, then `node` on PATH, then `CSS_LAB_NODE` from the Zed worktree environment. `CSS_LAB_NODE` can be an absolute path to the executable.
 
 ## Project-local CSS server configuration
 
