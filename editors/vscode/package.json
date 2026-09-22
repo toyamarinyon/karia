@@ -49,6 +49,7 @@
     }
   },
   "dependencies": {
+    "karia-lsp": "workspace:*",
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
-import { createRequire } from 'node:module';
-import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { resolveServerPath } from 'karia-lsp/resolve';
 import { LanguageClient, TransportKind, } from 'vscode-languageclient/node.js';
 const SERVER_NAME = 'karia';
 const PACKAGE_NAME = 'karia-lsp';
@@ -10,14 +11,12 @@ function findServerModule() {
     if (configured) {
         return configured;
     }
-    for (const folder of vscode.workspace.workspaceFolders ?? []) {
+    // Project-local install wins; fall back to the copy bundled with this extension.
+    const dirs = (vscode.workspace.workspaceFolders ?? []).map(folder => folder.uri.fsPath);
+    dirs.push(path.dirname(fileURLToPath(import.meta.url)));
+    for (const dir of dirs) {
         try {
-            const require = createRequire(folder.uri.fsPath + '/');
-            const packageJson = require.resolve(`${PACKAGE_NAME}/package.json`);
-            const serverPath = new URL('../server.js', `file://${packageJson}`).pathname;
-            if (fs.existsSync(serverPath)) {
-                return serverPath;
-            }
+            return resolveServerPath(dir);
         }
         catch {
             continue;

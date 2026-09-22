@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dist/server.js",
+    "./resolve": "./dist/resolve.js",
     "./package.json": "./package.json"
   },
   "bin": {

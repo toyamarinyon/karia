@@ -209,6 +209,9 @@ importers:
 
   editors/vscode:
     dependencies:
+      karia-lsp:
+        specifier: workspace:*
+        version: link:../../packages/karia-lsp
       vscode-languageclient:
         specifier: ^9.0.1
         version: 9.0.1
