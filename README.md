@@ -3,7 +3,7 @@
 A monorepo experimenting with a setup where editors and agents share the same CSS analysis, using a Vite demo.
 
 ```text
-Zed / LSP client
+Zed / VS Code / LSP client
   └─ packages/karia-lsp (TypeScript 7 / Node.js)
        ├─ vscode-css-languageservice: standard CSS completion and hover
        └─ NDJSON worker → packages/karia (Rust / cssparser)
@@ -36,7 +36,7 @@ A build is only needed when first setting up the tools or when the implementatio
 
 ## Try it in an editor
 
-Install the [Zed development extension](editors/zed/README.md) and open the root of this monorepo. `.zed/settings.json` switches the project's CSS server to `karia`, and in TSX it runs alongside the existing TypeScript server.
+Install the [Zed development extension](editors/zed/README.md) or the [VS Code extension](editors/vscode/README.md) and open the root of this monorepo. `.zed/settings.json` switches the project's CSS server to `karia`, and in TSX it runs alongside the existing TypeScript server.
 
 1. Hover `var(--surface)` in `apps/demo/src/App.module.css` → declared values and definition site in another file.
 2. Jump to definition at the same spot → `tokens.css`.

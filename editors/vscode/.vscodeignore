@@ -1,0 +1,6 @@
+src/**
+tsconfig.json
+turbo.json
+node_modules/**
+!node_modules/vscode-languageclient/**
+*.map

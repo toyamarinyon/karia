@@ -1,0 +1,73 @@
+{
+  "name": "karia-vscode",
+  "displayName": "Karia",
+  "version": "0.0.3",
+  "private": true,
+  "type": "module",
+  "description": "VS Code extension for the karia CSS language server",
+  "license": "MIT",
+  "publisher": "karia",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:css",
+    "onLanguage:typescriptreact",
+    "onLanguage:typescript",
+    "onLanguage:javascript"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "oxlint src",
+    "test": "node --test"
+  },
+  "contributes": {
+    "configuration": {
+      "title": "Karia",
+      "properties": {
+        "karia.serverPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the karia-lsp server entry point (server.js). When empty, the extension looks for a project-local karia-lsp install."
+        },
+        "karia.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace LSP traffic between VS Code and the karia server."
+        }
+      }
+    }
+  },
+  "dependencies": {
+    "karia-lsp": "workspace:*",
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.95.0",
+    "@types/node": "^24.0.0",
+    "oxlint": "^1.81.0",
+    "typescript": "^7.0.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/toyamarinyon/karia.git",
+    "directory": "editors/vscode"
+  },
+  "keywords": [
+    "css",
+    "css-modules",
+    "css-variables",
+    "language-server",
+    "lsp"
+  ]
+}
