@@ -2,7 +2,7 @@
 
 A Zed extension that launches `karia-lsp` (the CSS language server from the npm package). It registers the `karia` language server for CSS, TSX, TypeScript, and JavaScript. It does not add a grammar (Tree-sitter grammar); Zed's built-in language support is used as-is.
 
-The extension ID is `karia-lsp`, following Zed's [language server extension publishing requirements](https://zed.dev/docs/extensions/publishing/prerequisites#language-server-extensions). The language server ID remains `karia`, so settings continue to use `lsp.karia` and `"karia"` in `language_servers`.
+The extension ID is `karia-language-server`, following Zed's [language server extension publishing requirements](https://zed.dev/docs/extensions/publishing/prerequisites#language-server-extensions). The language server ID remains `karia`, so settings continue to use `lsp.karia` and `"karia"` in `language_servers`.
 
 ## Server resolution order
 

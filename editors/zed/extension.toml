@@ -1,4 +1,4 @@
-id = "karia-lsp"
+id = "karia-language-server"
 name = "Karia Language Server"
 version = "0.0.3"
 schema_version = 1
